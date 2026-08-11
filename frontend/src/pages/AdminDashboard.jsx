@@ -4,6 +4,16 @@ import api, { errorMessage } from '../api/client';
 
 const emptyForm = { name: '', email: '', mobile: '', heightCm: '', age: '', password: '' };
 
+function subscriptionStatus(subscriptionEndsAt) {
+  if (!subscriptionEndsAt) return { label: 'Not set', className: 'text-gray-500' };
+  const endsAt = new Date(subscriptionEndsAt);
+  const isActive = endsAt >= new Date(new Date().toDateString());
+  return {
+    label: `${isActive ? 'Active' : 'Expired'} (${endsAt.toLocaleDateString()})`,
+    className: isActive ? 'text-green-700' : 'text-red-700',
+  };
+}
+
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -192,6 +202,7 @@ export default function AdminDashboard() {
                 <th className="py-2 pr-4">Age</th>
                 <th className="py-2 pr-4">Latest Weight</th>
                 <th className="py-2 pr-4">Last Updated</th>
+                <th className="py-2 pr-4">Subscription</th>
                 <th className="py-2 pr-4">Actions</th>
               </tr>
             </thead>
@@ -206,6 +217,11 @@ export default function AdminDashboard() {
                   <td className="py-2 pr-4">{c.latestWeightKg ? `${c.latestWeightKg} kg` : '-'}</td>
                   <td className="py-2 pr-4">
                     {c.latestWeightAt ? new Date(c.latestWeightAt).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="py-2 pr-4">
+                    <span className={subscriptionStatus(c.subscriptionEndsAt).className}>
+                      {subscriptionStatus(c.subscriptionEndsAt).label}
+                    </span>
                   </td>
                   <td className="py-2 pr-4">
                     <div className="flex flex-wrap gap-2">

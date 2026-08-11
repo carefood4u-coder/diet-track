@@ -37,6 +37,10 @@ async function runNotificationTick() {
     const today = todayUtcMidnight();
 
     for (const user of users) {
+      if (user.subscriptionEndsAt && user.subscriptionEndsAt < today) {
+        continue; // subscription expired, no notifications until it's renewed
+      }
+
       // eslint-disable-next-line no-await-in-loop
       const day = await prisma.dietPlanDay.findFirst({
         where: { date: today, dietPlan: { userId: user.id } },

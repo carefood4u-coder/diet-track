@@ -103,6 +103,11 @@ export default function AdminClientDetail() {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkMessage, setBulkMessage] = useState('');
 
+  // Subscription end date
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState('');
+  const [subscriptionSaving, setSubscriptionSaving] = useState(false);
+  const [subscriptionMessage, setSubscriptionMessage] = useState('');
+
   // Notification send logs
   const [sendLogs, setSendLogs] = useState([]);
   const [sendLogsLoading, setSendLogsLoading] = useState(false);
@@ -117,6 +122,7 @@ export default function AdminClientDetail() {
       setNotifyTime(res.data.notifyTime || '08:00');
       setNotifyEmail(!!res.data.notifyEmail);
       setNotifyWhatsapp(!!res.data.notifyWhatsapp);
+      setSubscriptionEndsAt(res.data.subscriptionEndsAt ? res.data.subscriptionEndsAt.slice(0, 10) : '');
     } catch (err) {
       setError(errorMessage(err, 'Could not load client'));
     } finally {
@@ -179,6 +185,20 @@ export default function AdminClientDetail() {
       setNotifyMessage(errorMessage(err, 'Could not save settings'));
     } finally {
       setNotifySaving(false);
+    }
+  }
+
+  async function saveSubscription(e) {
+    e.preventDefault();
+    setSubscriptionSaving(true);
+    setSubscriptionMessage('');
+    try {
+      await api.put(`/admin/users/${id}/subscription`, { subscriptionEndsAt: subscriptionEndsAt || null });
+      setSubscriptionMessage('Subscription saved.');
+    } catch (err) {
+      setSubscriptionMessage(errorMessage(err, 'Could not save subscription'));
+    } finally {
+      setSubscriptionSaving(false);
     }
   }
 
@@ -261,7 +281,7 @@ export default function AdminClientDetail() {
         <p className="text-sm text-gray-500">{client.email}</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card">
           <h2 className="font-semibold mb-4">Profile</h2>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
@@ -306,6 +326,43 @@ export default function AdminClientDetail() {
               {notifySaving ? 'Saving...' : 'Save settings'}
             </button>
             {notifyMessage && <p className="text-xs text-gray-600">{notifyMessage}</p>}
+          </form>
+        </div>
+
+        <div className="card">
+          <h2 className="font-semibold mb-4">Subscription</h2>
+          <form onSubmit={saveSubscription} className="space-y-3">
+            <div>
+              <label className="label">Subscription end date</label>
+              <input
+                type="date"
+                className="input"
+                value={subscriptionEndsAt}
+                onChange={(e) => setSubscriptionEndsAt(e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              {subscriptionEndsAt
+                ? new Date(`${subscriptionEndsAt}T00:00:00.000Z`) >= new Date(new Date().toDateString())
+                  ? 'Active. Diet plan notifications stop the day after this date.'
+                  : 'Expired. This client will not receive diet plan notifications until renewed.'
+                : 'No end date set — notifications are not restricted.'}
+            </p>
+            <div className="flex items-center gap-2">
+              <button type="submit" className="btn-primary" disabled={subscriptionSaving}>
+                {subscriptionSaving ? 'Saving...' : 'Save'}
+              </button>
+              {subscriptionEndsAt && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setSubscriptionEndsAt('')}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {subscriptionMessage && <p className="text-xs text-gray-600">{subscriptionMessage}</p>}
           </form>
         </div>
       </div>

@@ -24,6 +24,9 @@ model User {
   notifyTime     String   @default("08:00") // "HH:mm", server local time
   notifyEmail    Boolean  @default(true)
   notifyWhatsapp Boolean  @default(false)
+  // Diet plan notifications stop once this date has passed. Null means no
+  // expiry is set (existing clients keep receiving notifications as before).
+  subscriptionEndsAt DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
