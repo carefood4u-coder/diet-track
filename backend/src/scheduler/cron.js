@@ -37,8 +37,8 @@ async function runNotificationTick() {
     const today = todayUtcMidnight();
 
     for (const user of users) {
-      if (user.subscriptionStartsAt && user.subscriptionStartsAt > today) {
-        continue; // subscription hasn't started yet
+      if (!user.subscriptionStartsAt || user.subscriptionStartsAt > today) {
+        continue; // not yet purchased / hasn't started yet
       }
       if (user.subscriptionEndsAt && user.subscriptionEndsAt < today) {
         continue; // subscription expired, no notifications until it's renewed

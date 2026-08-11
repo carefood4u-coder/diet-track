@@ -360,14 +360,14 @@ export default function AdminClientDetail() {
             <p className="text-xs text-gray-500">
               {(() => {
                 if (!subscriptionStartsAt && !subscriptionEndsAt) {
-                  return 'No dates set — notifications are not restricted.';
+                  return 'Not yet purchased. No dates set — notifications will not send.';
                 }
                 const today = new Date(new Date().toDateString());
                 if (subscriptionStartsAt && today < new Date(`${subscriptionStartsAt}T00:00:00.000Z`)) {
-                  return 'Not started yet. This client will not receive diet plan notifications until the start date.';
+                  return 'Not yet purchased. This client will not receive diet plan notifications until the start date.';
                 }
                 if (subscriptionEndsAt && today > new Date(`${subscriptionEndsAt}T00:00:00.000Z`)) {
-                  return 'Expired. This client will not receive diet plan notifications until renewed.';
+                  return 'Subscription ends. This client will not receive diet plan notifications until renewed.';
                 }
                 return 'Active. Diet plan notifications will send normally.';
               })()}

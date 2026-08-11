@@ -5,23 +5,21 @@ import api, { errorMessage } from '../api/client';
 const emptyForm = { name: '', email: '', mobile: '', heightCm: '', age: '', password: '' };
 
 function subscriptionStatus(subscriptionStartsAt, subscriptionEndsAt) {
-  if (!subscriptionStartsAt && !subscriptionEndsAt) return { label: 'Not set', className: 'text-gray-500' };
+  if (!subscriptionStartsAt && !subscriptionEndsAt) {
+    return { label: 'Not yet purchased', className: 'text-gray-500' };
+  }
 
   const today = new Date(new Date().toDateString());
   const startsAt = subscriptionStartsAt ? new Date(subscriptionStartsAt) : null;
   const endsAt = subscriptionEndsAt ? new Date(subscriptionEndsAt) : null;
-  const range = [
-    startsAt ? startsAt.toLocaleDateString() : 'any time',
-    endsAt ? endsAt.toLocaleDateString() : 'no end',
-  ].join(' – ');
 
   if (startsAt && today < startsAt) {
-    return { label: `Not started (${range})`, className: 'text-gray-500' };
+    return { label: 'Not yet purchased', className: 'text-gray-500' };
   }
   if (endsAt && today > endsAt) {
-    return { label: `Expired (${range})`, className: 'text-red-700' };
+    return { label: 'Subscription ends', className: 'text-red-700' };
   }
-  return { label: `Active (${range})`, className: 'text-green-700' };
+  return { label: 'Active', className: 'text-green-700' };
 }
 
 export default function AdminDashboard() {
