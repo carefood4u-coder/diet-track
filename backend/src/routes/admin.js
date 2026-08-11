@@ -252,4 +252,21 @@ router.get('/diet-plans/:userId', async (req, res) => {
   }
 });
 
+// GET /api/admin/send-logs/:userId - recent notification send attempts
+router.get('/send-logs/:userId', async (req, res) => {
+  try {
+    const userId = Number(req.params.userId);
+    const logs = await prisma.sendLog.findMany({
+      where: { userId },
+      orderBy: { sentAt: 'desc' },
+      take: 100,
+      include: { dietPlanDay: { select: { date: true } } },
+    });
+    return res.json(logs);
+  } catch (err) {
+    console.error('[admin/send-logs/:userId GET]', err);
+    return res.status(500).json({ error: 'Could not load send logs' });
+  }
+});
+
 module.exports = router;

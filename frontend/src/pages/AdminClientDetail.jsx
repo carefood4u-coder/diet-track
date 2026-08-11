@@ -31,6 +31,11 @@ export default function AdminClientDetail() {
   const [savingDayId, setSavingDayId] = useState(null);
   const [dayDrafts, setDayDrafts] = useState({});
 
+  // Notification send logs
+  const [sendLogs, setSendLogs] = useState([]);
+  const [sendLogsLoading, setSendLogsLoading] = useState(false);
+  const [sendLogsError, setSendLogsError] = useState('');
+
   const loadClient = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -73,6 +78,23 @@ export default function AdminClientDetail() {
   useEffect(() => {
     loadPlan();
   }, [loadPlan]);
+
+  const loadSendLogs = useCallback(async () => {
+    setSendLogsLoading(true);
+    setSendLogsError('');
+    try {
+      const res = await api.get(`/admin/send-logs/${id}`);
+      setSendLogs(res.data);
+    } catch (err) {
+      setSendLogsError(errorMessage(err, 'Could not load notification logs'));
+    } finally {
+      setSendLogsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    loadSendLogs();
+  }, [loadSendLogs]);
 
   async function saveNotifySettings(e) {
     e.preventDefault();
@@ -271,6 +293,64 @@ export default function AdminClientDetail() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <h2 className="font-semibold">Notification logs</h2>
+          <button type="button" className="btn-secondary py-1 px-2 text-xs" onClick={loadSendLogs} disabled={sendLogsLoading}>
+            {sendLogsLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
+
+        {sendLogsError && (
+          <div className="rounded-md bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 mb-4">
+            {sendLogsError}
+          </div>
+        )}
+
+        {sendLogsLoading ? (
+          <p className="text-sm text-gray-500">Loading...</p>
+        ) : sendLogs.length === 0 ? (
+          <p className="text-sm text-gray-500">No notifications have been sent yet.</p>
+        ) : (
+          <div className="max-h-72 overflow-y-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b border-gray-200">
+                  <th className="py-1 pr-4">Sent at</th>
+                  <th className="py-1 pr-4">Plan day</th>
+                  <th className="py-1 pr-4">Channel</th>
+                  <th className="py-1 pr-4">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sendLogs.map((log) => (
+                  <tr key={log.id} className="border-b border-gray-100 last:border-0">
+                    <td className="py-1 pr-4">{new Date(log.sentAt).toLocaleString()}</td>
+                    <td className="py-1 pr-4">
+                      {log.dietPlanDay ? new Date(log.dietPlanDay.date).toLocaleDateString() : '-'}
+                    </td>
+                    <td className="py-1 pr-4">{log.channel}</td>
+                    <td className="py-1 pr-4">
+                      <span
+                        className={
+                          log.status === 'SENT'
+                            ? 'text-green-700'
+                            : log.status === 'FAILED'
+                              ? 'text-red-700'
+                              : 'text-gray-500'
+                        }
+                      >
+                        {log.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
