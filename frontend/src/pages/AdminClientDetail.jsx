@@ -7,7 +7,71 @@ function currentMonthStr() {
   return new Date().toISOString().slice(0, 7);
 }
 
-const MEAL_FIELDS = ['breakfast', 'lunch', 'dinner', 'snacks', 'notes'];
+function newMealKey() {
+  return Math.random().toString(36).slice(2);
+}
+
+function newMeal() {
+  return { key: newMealKey(), name: '', time: '08:00', description: '' };
+}
+
+function mealsFromServer(meals) {
+  return (meals || []).map((m) => ({ key: newMealKey(), name: m.name, time: m.time, description: m.description }));
+}
+
+// Editable list of {name, time, description} rows, used both for a single
+// day and for the bulk-fill template. `meals` items carry a local `key` for
+// stable React keys (server ids don't exist yet for new rows).
+function MealsEditor({ meals, onChange }) {
+  function updateMeal(key, field, value) {
+    onChange(meals.map((m) => (m.key === key ? { ...m, [field]: value } : m)));
+  }
+  function removeMeal(key) {
+    onChange(meals.filter((m) => m.key !== key));
+  }
+  function addMeal() {
+    onChange([...meals, newMeal()]);
+  }
+
+  return (
+    <div className="space-y-2">
+      {meals.map((meal) => (
+        <div key={meal.key} className="grid grid-cols-1 sm:grid-cols-[1fr_110px_2fr_auto] gap-2 items-start">
+          <input
+            className="input"
+            placeholder="Meal name (e.g. Meal 1)"
+            value={meal.name}
+            onChange={(e) => updateMeal(meal.key, 'name', e.target.value)}
+          />
+          <input
+            type="time"
+            className="input"
+            value={meal.time}
+            onChange={(e) => updateMeal(meal.key, 'time', e.target.value)}
+          />
+          <textarea
+            className="input"
+            rows={1}
+            placeholder="What to eat"
+            value={meal.description}
+            onChange={(e) => updateMeal(meal.key, 'description', e.target.value)}
+          />
+          <button
+            type="button"
+            className="btn-secondary py-1 px-2 text-xs"
+            onClick={() => removeMeal(meal.key)}
+            aria-label="Remove meal"
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <button type="button" className="btn-secondary py-1 px-2 text-xs" onClick={addMeal}>
+        + Add meal
+      </button>
+    </div>
+  );
+}
 
 export default function AdminClientDetail() {
   const { id } = useParams();
@@ -31,10 +95,11 @@ export default function AdminClientDetail() {
   const [savingDayId, setSavingDayId] = useState(null);
   const [dayDrafts, setDayDrafts] = useState({});
 
-  // Bulk-fill state: apply the same meals to every day in a date range
+  // Bulk-fill state: apply the same meal list to every day in a date range
   const [bulkFrom, setBulkFrom] = useState('');
   const [bulkTo, setBulkTo] = useState('');
-  const [bulkDraft, setBulkDraft] = useState({ breakfast: '', lunch: '', dinner: '', snacks: '', notes: '' });
+  const [bulkMeals, setBulkMeals] = useState([newMeal()]);
+  const [bulkNotes, setBulkNotes] = useState('');
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkMessage, setBulkMessage] = useState('');
 
@@ -68,7 +133,7 @@ export default function AdminClientDetail() {
       setPlan(loadedPlan);
       const drafts = {};
       (loadedPlan?.days || []).forEach((d) => {
-        drafts[d.id] = { breakfast: d.breakfast, lunch: d.lunch, dinner: d.dinner, snacks: d.snacks, notes: d.notes || '' };
+        drafts[d.id] = { meals: mealsFromServer(d.meals), notes: d.notes || '' };
       });
       setDayDrafts(drafts);
     } catch (err) {
@@ -124,7 +189,7 @@ export default function AdminClientDetail() {
       setPlan(res.data);
       const drafts = {};
       res.data.days.forEach((d) => {
-        drafts[d.id] = { breakfast: d.breakfast, lunch: d.lunch, dinner: d.dinner, snacks: d.snacks, notes: d.notes || '' };
+        drafts[d.id] = { meals: mealsFromServer(d.meals), notes: d.notes || '' };
       });
       setDayDrafts(drafts);
     } catch (err) {
@@ -132,12 +197,12 @@ export default function AdminClientDetail() {
     }
   }
 
-  function updateDraft(dayId, field, value) {
-    setDayDrafts((prev) => ({ ...prev, [dayId]: { ...prev[dayId], [field]: value } }));
+  function updateDayMeals(dayId, meals) {
+    setDayDrafts((prev) => ({ ...prev, [dayId]: { ...prev[dayId], meals } }));
   }
 
-  function updateBulkDraft(field, value) {
-    setBulkDraft((prev) => ({ ...prev, [field]: value }));
+  function updateDayNotes(dayId, notes) {
+    setDayDrafts((prev) => ({ ...prev, [dayId]: { ...prev[dayId], notes } }));
   }
 
   async function applyBulkFill(e) {
@@ -152,7 +217,8 @@ export default function AdminClientDetail() {
       const res = await api.put(`/admin/diet-plans/${plan.id}/days/bulk-fill`, {
         fromDate: bulkFrom,
         toDate: bulkTo,
-        ...bulkDraft,
+        meals: bulkMeals.map(({ name, time, description }) => ({ name, time, description })),
+        notes: bulkNotes,
       });
       setBulkMessage(`Applied to ${res.data.updatedCount} day(s).`);
       await loadPlan();
@@ -166,7 +232,11 @@ export default function AdminClientDetail() {
   async function saveDay(dayId) {
     setSavingDayId(dayId);
     try {
-      await api.put(`/admin/diet-plans/${plan.id}/days/${dayId}`, dayDrafts[dayId]);
+      const draft = dayDrafts[dayId];
+      await api.put(`/admin/diet-plans/${plan.id}/days/${dayId}`, {
+        meals: draft.meals.map(({ name, time, description }) => ({ name, time, description })),
+        notes: draft.notes,
+      });
     } catch (err) {
       setPlanError(errorMessage(err, 'Could not save day'));
     } finally {
@@ -293,10 +363,11 @@ export default function AdminClientDetail() {
             <form onSubmit={applyBulkFill} className="border border-gray-200 rounded-md p-3 mb-4 bg-gray-50">
               <p className="text-sm font-medium mb-2">Fill a date range at once</p>
               <p className="text-xs text-gray-500 mb-3">
-                Same meals for several days in a row (e.g. a repeating weekly plan) &mdash; pick the range, enter
-                the meals once, and it overwrites every day in between.
+                Build the meal list once (name each meal freely, e.g. "Meal 1", "Meal 2" &mdash; add as many as this
+                client needs, with their own timing) and apply it to every day in a date range, instead of entering
+                each day one by one.
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+              <div className="grid grid-cols-2 gap-2 mb-3">
                 <div>
                   <label className="label">From date</label>
                   <input
@@ -311,63 +382,53 @@ export default function AdminClientDetail() {
                   <input type="date" className="input" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} />
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                {MEAL_FIELDS.map((field) => (
-                  <div key={field}>
-                    <label className="label capitalize">{field}</label>
-                    <textarea
-                      className="input"
-                      rows={2}
-                      value={bulkDraft[field]}
-                      onChange={(e) => updateBulkDraft(field, e.target.value)}
-                    />
-                  </div>
-                ))}
+              <label className="label">Meals</label>
+              <MealsEditor meals={bulkMeals} onChange={setBulkMeals} />
+              <div className="mt-3">
+                <label className="label">Notes</label>
+                <textarea className="input" rows={2} value={bulkNotes} onChange={(e) => setBulkNotes(e.target.value)} />
               </div>
-              <button type="submit" className="btn-primary" disabled={bulkSaving}>
+              <button type="submit" className="btn-primary mt-3" disabled={bulkSaving}>
                 {bulkSaving ? 'Applying...' : 'Apply to date range'}
               </button>
               {bulkMessage && <p className="text-xs text-gray-600 mt-2">{bulkMessage}</p>}
             </form>
 
             <div className="space-y-4">
-            {plan.days.map((day) => {
-              const draft = dayDrafts[day.id] || {};
-              return (
-                <div key={day.id} className="border border-gray-200 rounded-md p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">
-                      {new Date(day.date).toLocaleDateString(undefined, {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn-secondary py-1 px-2 text-xs"
-                      disabled={savingDayId === day.id}
-                      onClick={() => saveDay(day.id)}
-                    >
-                      {savingDayId === day.id ? 'Saving...' : 'Save'}
-                    </button>
+              {plan.days.map((day) => {
+                const draft = dayDrafts[day.id] || { meals: [], notes: '' };
+                return (
+                  <div key={day.id} className="border border-gray-200 rounded-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm">
+                        {new Date(day.date).toLocaleDateString(undefined, {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-secondary py-1 px-2 text-xs"
+                        disabled={savingDayId === day.id}
+                        onClick={() => saveDay(day.id)}
+                      >
+                        {savingDayId === day.id ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                    <MealsEditor meals={draft.meals} onChange={(meals) => updateDayMeals(day.id, meals)} />
+                    <div className="mt-2">
+                      <label className="label">Notes</label>
+                      <textarea
+                        className="input"
+                        rows={1}
+                        value={draft.notes}
+                        onChange={(e) => updateDayNotes(day.id, e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {MEAL_FIELDS.map((field) => (
-                      <div key={field}>
-                        <label className="label capitalize">{field}</label>
-                        <textarea
-                          className="input"
-                          rows={2}
-                          value={draft[field] || ''}
-                          onChange={(e) => updateDraft(day.id, field, e.target.value)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
             </div>
           </>
         )}

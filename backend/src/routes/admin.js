@@ -150,9 +150,18 @@ router.put('/users/:id/notify-settings', async (req, res) => {
   }
 });
 
+function mealCreateData(meals) {
+  return (Array.isArray(meals) ? meals : []).map((m) => ({
+    name: m.name || '',
+    time: m.time || '00:00',
+    description: m.description || '',
+  }));
+}
+
 // POST /api/admin/diet-plans { userId, month, days? }
-// Creates a DietPlan for the month. If `days` array is supplied, uses those
-// entries; otherwise generates one empty DietPlanDay per calendar day.
+// Creates a DietPlan for the month. If `days` array is supplied (each with
+// an optional `meals` array), uses those entries; otherwise generates one
+// empty DietPlanDay (no meals yet) per calendar day.
 router.post('/diet-plans', async (req, res) => {
   try {
     const { userId, month, days } = req.body || {};
@@ -171,20 +180,13 @@ router.post('/diet-plans', async (req, res) => {
     if (Array.isArray(days) && days.length > 0) {
       dayRecords = days.map((d) => ({
         date: new Date(d.date),
-        breakfast: d.breakfast || '',
-        lunch: d.lunch || '',
-        dinner: d.dinner || '',
-        snacks: d.snacks || '',
         notes: d.notes || null,
+        meals: { create: mealCreateData(d.meals) },
       }));
     } else {
       const total = daysInMonth(month);
       dayRecords = Array.from({ length: total }, (_, i) => ({
         date: dateForMonthDay(month, i + 1),
-        breakfast: '',
-        lunch: '',
-        dinner: '',
-        snacks: '',
         notes: null,
       }));
     }
@@ -195,7 +197,7 @@ router.post('/diet-plans', async (req, res) => {
         month,
         days: { create: dayRecords },
       },
-      include: { days: { orderBy: { date: 'asc' } } },
+      include: { days: { include: { meals: { orderBy: { time: 'asc' } } }, orderBy: { date: 'asc' } } },
     });
 
     return res.status(201).json(plan);
@@ -205,60 +207,72 @@ router.post('/diet-plans', async (req, res) => {
   }
 });
 
-// PUT /api/admin/diet-plans/:id/days/bulk-fill { fromDate, toDate, breakfast, lunch, dinner, snacks, notes }
-// Applies the same meals to every day in the plan between fromDate and toDate (inclusive).
+// PUT /api/admin/diet-plans/:id/days/bulk-fill { fromDate, toDate, meals, notes }
+// Replaces the meals (and optionally notes) for every day in the plan
+// between fromDate and toDate (inclusive) with the given meal list.
 // Registered before the /:dayId route below so "bulk-fill" isn't swallowed as a dayId.
 router.put('/diet-plans/:id/days/bulk-fill', async (req, res) => {
   try {
     const planId = Number(req.params.id);
-    const { fromDate, toDate, breakfast, lunch, dinner, snacks, notes } = req.body || {};
+    const { fromDate, toDate, meals, notes } = req.body || {};
 
     if (!fromDate || !toDate) {
       return res.status(400).json({ error: 'fromDate and toDate (YYYY-MM-DD) are required' });
     }
 
-    const data = {};
-    if (breakfast !== undefined) data.breakfast = breakfast;
-    if (lunch !== undefined) data.lunch = lunch;
-    if (dinner !== undefined) data.dinner = dinner;
-    if (snacks !== undefined) data.snacks = snacks;
-    if (notes !== undefined) data.notes = notes;
-
-    const result = await prisma.dietPlanDay.updateMany({
+    const days = await prisma.dietPlanDay.findMany({
       where: {
         dietPlanId: planId,
         date: { gte: new Date(`${fromDate}T00:00:00.000Z`), lte: new Date(`${toDate}T00:00:00.000Z`) },
       },
-      data,
+      select: { id: true },
     });
+    const dayIds = days.map((d) => d.id);
 
-    return res.json({ updatedCount: result.count });
+    const ops = [prisma.meal.deleteMany({ where: { dietPlanDayId: { in: dayIds } } })];
+    const newMeals = mealCreateData(meals);
+    if (newMeals.length > 0) {
+      ops.push(
+        prisma.meal.createMany({
+          data: dayIds.flatMap((dayId) => newMeals.map((m) => ({ ...m, dietPlanDayId: dayId }))),
+        }),
+      );
+    }
+    if (notes !== undefined) {
+      ops.push(prisma.dietPlanDay.updateMany({ where: { id: { in: dayIds } }, data: { notes } }));
+    }
+    await prisma.$transaction(ops);
+
+    return res.json({ updatedCount: dayIds.length });
   } catch (err) {
     console.error('[admin/diet-plans/:id/days/bulk-fill]', err);
     return res.status(500).json({ error: 'Could not bulk-fill diet plan days' });
   }
 });
 
-// PUT /api/admin/diet-plans/:id/days/:dayId
+// PUT /api/admin/diet-plans/:id/days/:dayId { meals, notes }
+// Replaces this day's full meal list with the given array.
 router.put('/diet-plans/:id/days/:dayId', async (req, res) => {
   try {
     const planId = Number(req.params.id);
     const dayId = Number(req.params.dayId);
-    const { breakfast, lunch, dinner, snacks, notes } = req.body || {};
+    const { meals, notes } = req.body || {};
 
     const day = await prisma.dietPlanDay.findUnique({ where: { id: dayId } });
     if (!day || day.dietPlanId !== planId) {
       return res.status(404).json({ error: 'Diet plan day not found' });
     }
 
-    const data = {};
-    if (breakfast !== undefined) data.breakfast = breakfast;
-    if (lunch !== undefined) data.lunch = lunch;
-    if (dinner !== undefined) data.dinner = dinner;
-    if (snacks !== undefined) data.snacks = snacks;
-    if (notes !== undefined) data.notes = notes;
+    await prisma.$transaction([
+      prisma.meal.deleteMany({ where: { dietPlanDayId: dayId } }),
+      prisma.meal.createMany({ data: mealCreateData(meals).map((m) => ({ ...m, dietPlanDayId: dayId })) }),
+      prisma.dietPlanDay.update({ where: { id: dayId }, data: notes !== undefined ? { notes } : {} }),
+    ]);
 
-    const updated = await prisma.dietPlanDay.update({ where: { id: dayId }, data });
+    const updated = await prisma.dietPlanDay.findUnique({
+      where: { id: dayId },
+      include: { meals: { orderBy: { time: 'asc' } } },
+    });
     return res.json(updated);
   } catch (err) {
     console.error('[admin/diet-plans/:id/days/:dayId]', err);
@@ -275,7 +289,7 @@ router.get('/diet-plans/:userId', async (req, res) => {
 
     const plan = await prisma.dietPlan.findUnique({
       where: { userId_month: { userId, month } },
-      include: { days: { orderBy: { date: 'asc' } } },
+      include: { days: { include: { meals: { orderBy: { time: 'asc' } } }, orderBy: { date: 'asc' } } },
     });
 
     if (!plan) return res.json({ plan: null, days: [] });

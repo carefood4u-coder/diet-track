@@ -60,15 +60,27 @@ model DietPlanDay {
   dietPlanId Int
   dietPlan   DietPlan @relation(fields: [dietPlanId], references: [id], onDelete: Cascade)
   date       DateTime // date-only, stored at UTC midnight
-  breakfast  String   @default("")
-  lunch      String   @default("")
-  dinner     String   @default("")
-  snacks     String   @default("")
   notes      String?
 
+  meals    Meal[]
   sendLogs SendLog[]
 
   @@unique([dietPlanId, date])
+}
+
+// A single meal within a day's plan. Trainers name and time these freely
+// (e.g. "Meal 1" at 07:00, "Pre-workout" at 16:00) since different clients
+// follow different numbers of meals per day - there's no fixed
+// breakfast/lunch/dinner structure.
+model Meal {
+  id            Int         @id @default(autoincrement())
+  dietPlanDayId Int
+  dietPlanDay   DietPlanDay @relation(fields: [dietPlanDayId], references: [id], onDelete: Cascade)
+  name          String // e.g. "Meal 1", "Pre-workout snack"
+  time          String // "HH:mm", used to sort meals within the day
+  description   String  @default("") // what to eat
+
+  @@index([dietPlanDayId])
 }
 
 model PasswordResetOtp {

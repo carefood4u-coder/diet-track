@@ -7,10 +7,7 @@ const { todayUtcMidnight, currentLocalHHmm } = require('../utils/dates');
 function formatPlanText(day) {
   return [
     `Today's diet plan (${day.date.toISOString().slice(0, 10)}):`,
-    `Breakfast: ${day.breakfast || '-'}`,
-    `Lunch: ${day.lunch || '-'}`,
-    `Dinner: ${day.dinner || '-'}`,
-    `Snacks: ${day.snacks || '-'}`,
+    ...day.meals.map((m) => `${m.time} ${m.name}: ${m.description || '-'}`),
     day.notes ? `Notes: ${day.notes}` : null,
   ]
     .filter(Boolean)
@@ -43,9 +40,10 @@ async function runNotificationTick() {
       // eslint-disable-next-line no-await-in-loop
       const day = await prisma.dietPlanDay.findFirst({
         where: { date: today, dietPlan: { userId: user.id } },
+        include: { meals: { orderBy: { time: 'asc' } } },
       });
 
-      if (!day) continue; // nothing scheduled for today for this user
+      if (!day || day.meals.length === 0) continue; // nothing scheduled for today for this user
 
       const planText = formatPlanText(day);
 

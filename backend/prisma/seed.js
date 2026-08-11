@@ -77,38 +77,52 @@ async function main() {
 
     const sampleMeals = [
       {
-        breakfast: 'Oats with banana and almonds',
-        lunch: 'Grilled chicken salad with olive oil dressing',
-        dinner: 'Baked salmon with steamed broccoli',
-        snacks: 'Greek yogurt + a handful of walnuts',
+        meals: [
+          { name: 'Breakfast', time: '08:00', description: 'Oats with banana and almonds' },
+          { name: 'Lunch', time: '13:00', description: 'Grilled chicken salad with olive oil dressing' },
+          { name: 'Dinner', time: '19:00', description: 'Baked salmon with steamed broccoli' },
+          { name: 'Snacks', time: '16:00', description: 'Greek yogurt + a handful of walnuts' },
+        ],
         notes: 'Drink at least 2.5L of water today.',
       },
       {
-        breakfast: 'Veggie omelette + whole wheat toast',
-        lunch: 'Quinoa bowl with chickpeas and roasted vegetables',
-        dinner: 'Stir-fried tofu with brown rice',
-        snacks: 'Apple + peanut butter',
+        meals: [
+          { name: 'Breakfast', time: '08:00', description: 'Veggie omelette + whole wheat toast' },
+          { name: 'Lunch', time: '13:00', description: 'Quinoa bowl with chickpeas and roasted vegetables' },
+          { name: 'Dinner', time: '19:00', description: 'Stir-fried tofu with brown rice' },
+          { name: 'Snacks', time: '16:00', description: 'Apple + peanut butter' },
+        ],
         notes: '',
       },
       {
-        breakfast: 'Smoothie: spinach, banana, protein powder, almond milk',
-        lunch: 'Turkey wrap with whole wheat tortilla',
-        dinner: 'Lean beef stir fry with mixed vegetables',
-        snacks: 'Carrot sticks + hummus',
+        meals: [
+          {
+            name: 'Breakfast',
+            time: '08:00',
+            description: 'Smoothie: spinach, banana, protein powder, almond milk',
+          },
+          { name: 'Lunch', time: '13:00', description: 'Turkey wrap with whole wheat tortilla' },
+          { name: 'Dinner', time: '19:00', description: 'Lean beef stir fry with mixed vegetables' },
+          { name: 'Snacks', time: '16:00', description: 'Carrot sticks + hummus' },
+        ],
         notes: 'Leg day - extra protein.',
       },
       {
-        breakfast: 'Greek yogurt with berries and granola',
-        lunch: 'Lentil soup with a side salad',
-        dinner: 'Grilled fish tacos (corn tortillas)',
-        snacks: 'Mixed nuts',
+        meals: [
+          { name: 'Breakfast', time: '08:00', description: 'Greek yogurt with berries and granola' },
+          { name: 'Lunch', time: '13:00', description: 'Lentil soup with a side salad' },
+          { name: 'Dinner', time: '19:00', description: 'Grilled fish tacos (corn tortillas)' },
+          { name: 'Snacks', time: '16:00', description: 'Mixed nuts' },
+        ],
         notes: '',
       },
       {
-        breakfast: 'Whole grain pancakes with a little honey',
-        lunch: 'Chicken and vegetable stir fry',
-        dinner: 'Vegetable curry with basmati rice',
-        snacks: 'Protein shake',
+        meals: [
+          { name: 'Breakfast', time: '08:00', description: 'Whole grain pancakes with a little honey' },
+          { name: 'Lunch', time: '13:00', description: 'Chicken and vegetable stir fry' },
+          { name: 'Dinner', time: '19:00', description: 'Vegetable curry with basmati rice' },
+          { name: 'Snacks', time: '16:00', description: 'Protein shake' },
+        ],
         notes: 'Rest day.',
       },
     ];
@@ -118,11 +132,8 @@ async function main() {
       const filled = sampleMeals[i];
       return {
         date: dateForMonthDay(month, dayNum),
-        breakfast: filled ? filled.breakfast : '',
-        lunch: filled ? filled.lunch : '',
-        dinner: filled ? filled.dinner : '',
-        snacks: filled ? filled.snacks : '',
         notes: filled ? filled.notes || null : null,
+        meals: filled ? { create: filled.meals } : undefined,
       };
     });
 

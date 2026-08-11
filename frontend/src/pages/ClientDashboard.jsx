@@ -131,28 +131,22 @@ export default function ClientDashboard() {
         <h2 className="font-semibold mb-3">Today's diet plan</h2>
         {todayLoading ? (
           <p className="text-sm text-gray-500">Loading...</p>
-        ) : !today ? (
+        ) : !today || today.meals.length === 0 ? (
           <p className="text-sm text-gray-500">No diet plan set for today. Check back later or contact your trainer.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-gray-500 font-medium">Breakfast</p>
-              <p>{today.breakfast || '-'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 font-medium">Lunch</p>
-              <p>{today.lunch || '-'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 font-medium">Dinner</p>
-              <p>{today.dinner || '-'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 font-medium">Snacks</p>
-              <p>{today.snacks || '-'}</p>
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {today.meals.map((meal) => (
+                <div key={meal.id}>
+                  <p className="text-gray-500 font-medium">
+                    {meal.time} &middot; {meal.name}
+                  </p>
+                  <p>{meal.description || '-'}</p>
+                </div>
+              ))}
             </div>
             {today.notes && (
-              <div className="sm:col-span-2">
+              <div>
                 <p className="text-gray-500 font-medium">Notes</p>
                 <p>{today.notes}</p>
               </div>
@@ -289,10 +283,7 @@ export default function ClientDashboard() {
               <thead>
                 <tr className="text-left text-gray-500 border-b border-gray-200">
                   <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Breakfast</th>
-                  <th className="py-2 pr-4">Lunch</th>
-                  <th className="py-2 pr-4">Dinner</th>
-                  <th className="py-2 pr-4">Snacks</th>
+                  <th className="py-2 pr-4">Meals</th>
                   <th className="py-2 pr-4">Notes</th>
                 </tr>
               </thead>
@@ -300,10 +291,22 @@ export default function ClientDashboard() {
                 {monthPlan.days.map((d) => (
                   <tr key={d.id} className="border-b border-gray-100 last:border-0 align-top">
                     <td className="py-2 pr-4 whitespace-nowrap">{new Date(d.date).toLocaleDateString()}</td>
-                    <td className="py-2 pr-4">{d.breakfast || '-'}</td>
-                    <td className="py-2 pr-4">{d.lunch || '-'}</td>
-                    <td className="py-2 pr-4">{d.dinner || '-'}</td>
-                    <td className="py-2 pr-4">{d.snacks || '-'}</td>
+                    <td className="py-2 pr-4">
+                      {d.meals.length === 0 ? (
+                        '-'
+                      ) : (
+                        <ul className="space-y-1">
+                          {d.meals.map((meal) => (
+                            <li key={meal.id}>
+                              <span className="text-gray-500">
+                                {meal.time} {meal.name}:
+                              </span>{' '}
+                              {meal.description || '-'}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
                     <td className="py-2 pr-4">{d.notes || '-'}</td>
                   </tr>
                 ))}

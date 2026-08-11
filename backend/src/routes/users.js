@@ -78,7 +78,7 @@ router.get('/me/diet-plan/today', async (req, res) => {
     const today = todayUtcMidnight();
     const day = await prisma.dietPlanDay.findFirst({
       where: { date: today, dietPlan: { userId: req.user.id } },
-      include: { dietPlan: true },
+      include: { dietPlan: true, meals: { orderBy: { time: 'asc' } } },
     });
     if (!day) {
       return res.json({ day: null, message: 'No diet plan set for today' });
@@ -98,7 +98,7 @@ router.get('/me/diet-plan', async (req, res) => {
 
     const plan = await prisma.dietPlan.findUnique({
       where: { userId_month: { userId: req.user.id, month } },
-      include: { days: { orderBy: { date: 'asc' } } },
+      include: { days: { include: { meals: { orderBy: { time: 'asc' } } }, orderBy: { date: 'asc' } } },
     });
 
     if (!plan) return res.json({ plan: null, days: [] });
