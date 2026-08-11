@@ -1,5 +1,38 @@
 const nodemailer = require('nodemailer');
 
+/**
+ * Sends via the Resend HTTP API (https, port 443) instead of SMTP. Many
+ * hosts (including Render's free tier) block outbound SMTP ports, so this
+ * is used whenever RESEND_API_KEY is set, bypassing that restriction.
+ */
+async function sendViaResendApi({ to, subject, text, html }) {
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: process.env.SMTP_FROM || 'onboarding@resend.dev',
+        to,
+        subject,
+        text,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error('[Email] Resend API send failed:', res.status, body);
+      return { status: 'FAILED', error: `Resend API ${res.status}` };
+    }
+    return { status: 'SENT' };
+  } catch (err) {
+    console.error('[Email] Resend API send failed:', err.message);
+    return { status: 'FAILED', error: err.message };
+  }
+}
+
 let transporter;
 let triedInit = false;
 
@@ -37,6 +70,10 @@ function getTransporter() {
  * result object describing what happened so it can be recorded in a SendLog.
  */
 async function sendEmail({ to, subject, text, html }) {
+  if (process.env.RESEND_API_KEY) {
+    return sendViaResendApi({ to, subject, text, html });
+  }
+
   const t = getTransporter();
   if (!t) {
     console.log(`[Email not configured, skipping] to=${to} subject="${subject}"`);
