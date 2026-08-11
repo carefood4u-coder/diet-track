@@ -1,10 +1,6 @@
 // DietTrack Prisma schema
-// Uses SQLite for easy local dev. To move to Postgres later:
-//   1. change provider below from "sqlite" to "postgresql"
-//   2. set DATABASE_URL in .env to a Postgres connection string
-//   3. re-run `npx prisma migrate dev`
-// NOTE: SQLite does not support native enum types, so role/channel/status
-// fields are plain Strings with values enforced in application code:
+// NOTE: role/channel/status fields are plain Strings with values enforced
+// in application code (kept from the original SQLite-compatible schema):
 //   User.role       -> "ADMIN" | "USER"
 
 generator client {
@@ -12,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
