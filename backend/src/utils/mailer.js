@@ -1,34 +1,37 @@
 const nodemailer = require('nodemailer');
 
 /**
- * Sends via the Resend HTTP API (https, port 443) instead of SMTP. Many
+ * Sends via the SendGrid HTTP API (https, port 443) instead of SMTP. Many
  * hosts (including Render's free tier) block outbound SMTP ports, so this
- * is used whenever RESEND_API_KEY is set, bypassing that restriction.
+ * is used whenever SENDGRID_API_KEY is set, bypassing that restriction.
+ * Requires the `from` address to be a Verified Sender in SendGrid.
  */
-async function sendViaResendApi({ to, subject, text, html }) {
+async function sendViaSendGridApi({ to, subject, text, html }) {
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.SMTP_FROM || 'onboarding@resend.dev',
-        to,
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: process.env.SMTP_FROM },
         subject,
-        text,
-        html,
+        content: [
+          { type: 'text/plain', value: text || ' ' },
+          ...(html ? [{ type: 'text/html', value: html }] : []),
+        ],
       }),
     });
     if (!res.ok) {
       const body = await res.text();
-      console.error('[Email] Resend API send failed:', res.status, body);
-      return { status: 'FAILED', error: `Resend API ${res.status}` };
+      console.error('[Email] SendGrid API send failed:', res.status, body);
+      return { status: 'FAILED', error: `SendGrid API ${res.status}` };
     }
     return { status: 'SENT' };
   } catch (err) {
-    console.error('[Email] Resend API send failed:', err.message);
+    console.error('[Email] SendGrid API send failed:', err.message);
     return { status: 'FAILED', error: err.message };
   }
 }
@@ -70,8 +73,8 @@ function getTransporter() {
  * result object describing what happened so it can be recorded in a SendLog.
  */
 async function sendEmail({ to, subject, text, html }) {
-  if (process.env.RESEND_API_KEY) {
-    return sendViaResendApi({ to, subject, text, html });
+  if (process.env.SENDGRID_API_KEY) {
+    return sendViaSendGridApi({ to, subject, text, html });
   }
 
   const t = getTransporter();
