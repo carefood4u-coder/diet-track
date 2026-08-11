@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { errorMessage } from '../api/client';
+import VeggieBackground from '../components/VeggieBackground';
 
 export default function Login() {
   const { login } = useAuth();
@@ -27,8 +28,9 @@ export default function Login() {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-10">
-      <div className="card">
+    <div className="max-w-md mx-auto mt-10 relative">
+      <VeggieBackground />
+      <div className="card relative bg-white/90 backdrop-blur-sm">
         <h1 className="text-2xl font-bold mb-1">Welcome back</h1>
         <p className="text-sm text-gray-500 mb-6">Log in to DietTrack</p>
 

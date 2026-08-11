@@ -18,10 +18,10 @@ function HomeRedirect() {
 
 export default function App() {
   const location = useLocation();
-  const isClientDashboard = location.pathname.startsWith('/dashboard');
+  const hasDietBg = location.pathname.startsWith('/dashboard') || location.pathname === '/login';
 
   return (
-    <div className={`min-h-screen flex flex-col ${isClientDashboard ? 'diet-bg' : ''}`}>
+    <div className={`min-h-screen flex flex-col ${hasDietBg ? 'diet-bg' : ''}`}>
       <Nav />
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6">
         <Routes>
