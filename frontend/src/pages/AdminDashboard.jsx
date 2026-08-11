@@ -4,14 +4,24 @@ import api, { errorMessage } from '../api/client';
 
 const emptyForm = { name: '', email: '', mobile: '', heightCm: '', age: '', password: '' };
 
-function subscriptionStatus(subscriptionEndsAt) {
-  if (!subscriptionEndsAt) return { label: 'Not set', className: 'text-gray-500' };
-  const endsAt = new Date(subscriptionEndsAt);
-  const isActive = endsAt >= new Date(new Date().toDateString());
-  return {
-    label: `${isActive ? 'Active' : 'Expired'} (${endsAt.toLocaleDateString()})`,
-    className: isActive ? 'text-green-700' : 'text-red-700',
-  };
+function subscriptionStatus(subscriptionStartsAt, subscriptionEndsAt) {
+  if (!subscriptionStartsAt && !subscriptionEndsAt) return { label: 'Not set', className: 'text-gray-500' };
+
+  const today = new Date(new Date().toDateString());
+  const startsAt = subscriptionStartsAt ? new Date(subscriptionStartsAt) : null;
+  const endsAt = subscriptionEndsAt ? new Date(subscriptionEndsAt) : null;
+  const range = [
+    startsAt ? startsAt.toLocaleDateString() : 'any time',
+    endsAt ? endsAt.toLocaleDateString() : 'no end',
+  ].join(' – ');
+
+  if (startsAt && today < startsAt) {
+    return { label: `Not started (${range})`, className: 'text-gray-500' };
+  }
+  if (endsAt && today > endsAt) {
+    return { label: `Expired (${range})`, className: 'text-red-700' };
+  }
+  return { label: `Active (${range})`, className: 'text-green-700' };
 }
 
 export default function AdminDashboard() {
@@ -219,8 +229,8 @@ export default function AdminDashboard() {
                     {c.latestWeightAt ? new Date(c.latestWeightAt).toLocaleDateString() : '-'}
                   </td>
                   <td className="py-2 pr-4">
-                    <span className={subscriptionStatus(c.subscriptionEndsAt).className}>
-                      {subscriptionStatus(c.subscriptionEndsAt).label}
+                    <span className={subscriptionStatus(c.subscriptionStartsAt, c.subscriptionEndsAt).className}>
+                      {subscriptionStatus(c.subscriptionStartsAt, c.subscriptionEndsAt).label}
                     </span>
                   </td>
                   <td className="py-2 pr-4">

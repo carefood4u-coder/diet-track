@@ -150,15 +150,19 @@ router.put('/users/:id/notify-settings', async (req, res) => {
   }
 });
 
-// PUT /api/admin/users/:id/subscription { subscriptionEndsAt } - "YYYY-MM-DD" or null to clear
+// PUT /api/admin/users/:id/subscription { subscriptionStartsAt, subscriptionEndsAt }
+// Each is "YYYY-MM-DD" or null to clear that side.
 router.put('/users/:id/subscription', async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { subscriptionEndsAt } = req.body || {};
+    const { subscriptionStartsAt, subscriptionEndsAt } = req.body || {};
 
     const user = await prisma.user.update({
       where: { id },
-      data: { subscriptionEndsAt: subscriptionEndsAt ? new Date(`${subscriptionEndsAt}T00:00:00.000Z`) : null },
+      data: {
+        subscriptionStartsAt: subscriptionStartsAt ? new Date(`${subscriptionStartsAt}T00:00:00.000Z`) : null,
+        subscriptionEndsAt: subscriptionEndsAt ? new Date(`${subscriptionEndsAt}T00:00:00.000Z`) : null,
+      },
     });
     return res.json(publicUser(user));
   } catch (err) {

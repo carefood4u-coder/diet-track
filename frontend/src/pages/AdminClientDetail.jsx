@@ -103,7 +103,8 @@ export default function AdminClientDetail() {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkMessage, setBulkMessage] = useState('');
 
-  // Subscription end date
+  // Subscription date range
+  const [subscriptionStartsAt, setSubscriptionStartsAt] = useState('');
   const [subscriptionEndsAt, setSubscriptionEndsAt] = useState('');
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
   const [subscriptionMessage, setSubscriptionMessage] = useState('');
@@ -122,6 +123,7 @@ export default function AdminClientDetail() {
       setNotifyTime(res.data.notifyTime || '08:00');
       setNotifyEmail(!!res.data.notifyEmail);
       setNotifyWhatsapp(!!res.data.notifyWhatsapp);
+      setSubscriptionStartsAt(res.data.subscriptionStartsAt ? res.data.subscriptionStartsAt.slice(0, 10) : '');
       setSubscriptionEndsAt(res.data.subscriptionEndsAt ? res.data.subscriptionEndsAt.slice(0, 10) : '');
     } catch (err) {
       setError(errorMessage(err, 'Could not load client'));
@@ -193,7 +195,10 @@ export default function AdminClientDetail() {
     setSubscriptionSaving(true);
     setSubscriptionMessage('');
     try {
-      await api.put(`/admin/users/${id}/subscription`, { subscriptionEndsAt: subscriptionEndsAt || null });
+      await api.put(`/admin/users/${id}/subscription`, {
+        subscriptionStartsAt: subscriptionStartsAt || null,
+        subscriptionEndsAt: subscriptionEndsAt || null,
+      });
       setSubscriptionMessage('Subscription saved.');
     } catch (err) {
       setSubscriptionMessage(errorMessage(err, 'Could not save subscription'));
@@ -332,31 +337,53 @@ export default function AdminClientDetail() {
         <div className="card">
           <h2 className="font-semibold mb-4">Subscription</h2>
           <form onSubmit={saveSubscription} className="space-y-3">
-            <div>
-              <label className="label">Subscription end date</label>
-              <input
-                type="date"
-                className="input"
-                value={subscriptionEndsAt}
-                onChange={(e) => setSubscriptionEndsAt(e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="label">Start date</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={subscriptionStartsAt}
+                  onChange={(e) => setSubscriptionStartsAt(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">End date</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={subscriptionEndsAt}
+                  onChange={(e) => setSubscriptionEndsAt(e.target.value)}
+                />
+              </div>
             </div>
             <p className="text-xs text-gray-500">
-              {subscriptionEndsAt
-                ? new Date(`${subscriptionEndsAt}T00:00:00.000Z`) >= new Date(new Date().toDateString())
-                  ? 'Active. Diet plan notifications stop the day after this date.'
-                  : 'Expired. This client will not receive diet plan notifications until renewed.'
-                : 'No end date set — notifications are not restricted.'}
+              {(() => {
+                if (!subscriptionStartsAt && !subscriptionEndsAt) {
+                  return 'No dates set — notifications are not restricted.';
+                }
+                const today = new Date(new Date().toDateString());
+                if (subscriptionStartsAt && today < new Date(`${subscriptionStartsAt}T00:00:00.000Z`)) {
+                  return 'Not started yet. This client will not receive diet plan notifications until the start date.';
+                }
+                if (subscriptionEndsAt && today > new Date(`${subscriptionEndsAt}T00:00:00.000Z`)) {
+                  return 'Expired. This client will not receive diet plan notifications until renewed.';
+                }
+                return 'Active. Diet plan notifications will send normally.';
+              })()}
             </p>
             <div className="flex items-center gap-2">
               <button type="submit" className="btn-primary" disabled={subscriptionSaving}>
                 {subscriptionSaving ? 'Saving...' : 'Save'}
               </button>
-              {subscriptionEndsAt && (
+              {(subscriptionStartsAt || subscriptionEndsAt) && (
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => setSubscriptionEndsAt('')}
+                  onClick={() => {
+                    setSubscriptionStartsAt('');
+                    setSubscriptionEndsAt('');
+                  }}
                 >
                   Clear
                 </button>
