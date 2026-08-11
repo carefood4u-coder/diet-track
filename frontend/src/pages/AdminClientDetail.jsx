@@ -109,6 +109,11 @@ export default function AdminClientDetail() {
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
   const [subscriptionMessage, setSubscriptionMessage] = useState('');
 
+  // Reset password
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resetSaving, setResetSaving] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
+
   // Notification send logs
   const [sendLogs, setSendLogs] = useState([]);
   const [sendLogsLoading, setSendLogsLoading] = useState(false);
@@ -204,6 +209,25 @@ export default function AdminClientDetail() {
       setSubscriptionMessage(errorMessage(err, 'Could not save subscription'));
     } finally {
       setSubscriptionSaving(false);
+    }
+  }
+
+  async function submitReset(e) {
+    e.preventDefault();
+    setResetMessage('');
+    if (!resetPasswordValue || resetPasswordValue.length < 8) {
+      setResetMessage('Password must be at least 8 characters.');
+      return;
+    }
+    setResetSaving(true);
+    try {
+      await api.post(`/admin/users/${id}/reset-password`, { newPassword: resetPasswordValue });
+      setResetMessage('Password reset successfully.');
+      setResetPasswordValue('');
+    } catch (err) {
+      setResetMessage(errorMessage(err, 'Could not reset password'));
+    } finally {
+      setResetSaving(false);
     }
   }
 
@@ -392,6 +416,26 @@ export default function AdminClientDetail() {
             {subscriptionMessage && <p className="text-xs text-gray-600">{subscriptionMessage}</p>}
           </form>
         </div>
+      </div>
+
+      <div className="card">
+        <h2 className="font-semibold mb-4">Reset password</h2>
+        <form onSubmit={submitReset} className="flex items-end gap-2 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <label className="label">New password</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="At least 8 characters"
+              value={resetPasswordValue}
+              onChange={(e) => setResetPasswordValue(e.target.value)}
+            />
+          </div>
+          <button type="submit" className="btn-primary" disabled={resetSaving}>
+            {resetSaving ? 'Saving...' : 'Reset password'}
+          </button>
+        </form>
+        {resetMessage && <p className="text-xs text-gray-600 mt-2">{resetMessage}</p>}
       </div>
 
       <div className="card">

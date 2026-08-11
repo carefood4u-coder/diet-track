@@ -32,10 +32,6 @@ export default function AdminDashboard() {
   const [creating, setCreating] = useState(false);
   const [createdInfo, setCreatedInfo] = useState('');
 
-  const [resettingId, setResettingId] = useState(null);
-  const [resetPasswordValue, setResetPasswordValue] = useState('');
-  const [resetMessage, setResetMessage] = useState('');
-
   async function loadUsers() {
     setLoading(true);
     setError('');
@@ -79,26 +75,6 @@ export default function AdminDashboard() {
       setError(errorMessage(err, 'Could not create client'));
     } finally {
       setCreating(false);
-    }
-  }
-
-  function startReset(id) {
-    setResettingId(id);
-    setResetPasswordValue('');
-    setResetMessage('');
-  }
-
-  async function submitReset(id) {
-    if (!resetPasswordValue || resetPasswordValue.length < 8) {
-      setResetMessage('Password must be at least 8 characters.');
-      return;
-    }
-    try {
-      await api.post(`/admin/users/${id}/reset-password`, { newPassword: resetPasswordValue });
-      setResetMessage('Password reset successfully.');
-      setTimeout(() => setResettingId(null), 1200);
-    } catch (err) {
-      setResetMessage(errorMessage(err, 'Could not reset password'));
     }
   }
 
@@ -232,46 +208,9 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="py-2 pr-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Link to={`/admin/clients/${c.id}`} className="btn-secondary py-1 px-2 text-xs">
-                        View
-                      </Link>
-                      <button
-                        type="button"
-                        className="btn-secondary py-1 px-2 text-xs"
-                        onClick={() => startReset(c.id)}
-                      >
-                        Reset Password
-                      </button>
-                    </div>
-                    {resettingId === c.id && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="New password"
-                          className="input text-xs py-1"
-                          value={resetPasswordValue}
-                          onChange={(e) => setResetPasswordValue(e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          className="btn-primary py-1 px-2 text-xs"
-                          onClick={() => submitReset(c.id)}
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-secondary py-1 px-2 text-xs"
-                          onClick={() => setResettingId(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                    {resettingId === c.id && resetMessage && (
-                      <p className="text-xs mt-1 text-gray-600">{resetMessage}</p>
-                    )}
+                    <Link to={`/admin/clients/${c.id}`} className="btn-secondary py-1 px-2 text-xs">
+                      View
+                    </Link>
                   </td>
                 </tr>
               ))}
