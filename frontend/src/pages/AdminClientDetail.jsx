@@ -31,6 +31,13 @@ export default function AdminClientDetail() {
   const [savingDayId, setSavingDayId] = useState(null);
   const [dayDrafts, setDayDrafts] = useState({});
 
+  // Bulk-fill state: apply the same meals to every day in a date range
+  const [bulkFrom, setBulkFrom] = useState('');
+  const [bulkTo, setBulkTo] = useState('');
+  const [bulkDraft, setBulkDraft] = useState({ breakfast: '', lunch: '', dinner: '', snacks: '', notes: '' });
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState('');
+
   // Notification send logs
   const [sendLogs, setSendLogs] = useState([]);
   const [sendLogsLoading, setSendLogsLoading] = useState(false);
@@ -127,6 +134,33 @@ export default function AdminClientDetail() {
 
   function updateDraft(dayId, field, value) {
     setDayDrafts((prev) => ({ ...prev, [dayId]: { ...prev[dayId], [field]: value } }));
+  }
+
+  function updateBulkDraft(field, value) {
+    setBulkDraft((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function applyBulkFill(e) {
+    e.preventDefault();
+    setBulkMessage('');
+    if (!bulkFrom || !bulkTo) {
+      setBulkMessage('Pick both a from and to date.');
+      return;
+    }
+    setBulkSaving(true);
+    try {
+      const res = await api.put(`/admin/diet-plans/${plan.id}/days/bulk-fill`, {
+        fromDate: bulkFrom,
+        toDate: bulkTo,
+        ...bulkDraft,
+      });
+      setBulkMessage(`Applied to ${res.data.updatedCount} day(s).`);
+      await loadPlan();
+    } catch (err) {
+      setBulkMessage(errorMessage(err, 'Could not apply bulk fill'));
+    } finally {
+      setBulkSaving(false);
+    }
   }
 
   async function saveDay(dayId) {
@@ -255,7 +289,48 @@ export default function AdminClientDetail() {
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <>
+            <form onSubmit={applyBulkFill} className="border border-gray-200 rounded-md p-3 mb-4 bg-gray-50">
+              <p className="text-sm font-medium mb-2">Fill a date range at once</p>
+              <p className="text-xs text-gray-500 mb-3">
+                Same meals for several days in a row (e.g. a repeating weekly plan) &mdash; pick the range, enter
+                the meals once, and it overwrites every day in between.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                <div>
+                  <label className="label">From date</label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={bulkFrom}
+                    onChange={(e) => setBulkFrom(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="label">To date</label>
+                  <input type="date" className="input" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                {MEAL_FIELDS.map((field) => (
+                  <div key={field}>
+                    <label className="label capitalize">{field}</label>
+                    <textarea
+                      className="input"
+                      rows={2}
+                      value={bulkDraft[field]}
+                      onChange={(e) => updateBulkDraft(field, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <button type="submit" className="btn-primary" disabled={bulkSaving}>
+                {bulkSaving ? 'Applying...' : 'Apply to date range'}
+              </button>
+              {bulkMessage && <p className="text-xs text-gray-600 mt-2">{bulkMessage}</p>}
+            </form>
+
+            <div className="space-y-4">
             {plan.days.map((day) => {
               const draft = dayDrafts[day.id] || {};
               return (
@@ -293,7 +368,8 @@ export default function AdminClientDetail() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          </>
         )}
       </div>
 

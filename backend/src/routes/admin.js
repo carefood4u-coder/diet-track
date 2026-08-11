@@ -205,6 +205,40 @@ router.post('/diet-plans', async (req, res) => {
   }
 });
 
+// PUT /api/admin/diet-plans/:id/days/bulk-fill { fromDate, toDate, breakfast, lunch, dinner, snacks, notes }
+// Applies the same meals to every day in the plan between fromDate and toDate (inclusive).
+// Registered before the /:dayId route below so "bulk-fill" isn't swallowed as a dayId.
+router.put('/diet-plans/:id/days/bulk-fill', async (req, res) => {
+  try {
+    const planId = Number(req.params.id);
+    const { fromDate, toDate, breakfast, lunch, dinner, snacks, notes } = req.body || {};
+
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ error: 'fromDate and toDate (YYYY-MM-DD) are required' });
+    }
+
+    const data = {};
+    if (breakfast !== undefined) data.breakfast = breakfast;
+    if (lunch !== undefined) data.lunch = lunch;
+    if (dinner !== undefined) data.dinner = dinner;
+    if (snacks !== undefined) data.snacks = snacks;
+    if (notes !== undefined) data.notes = notes;
+
+    const result = await prisma.dietPlanDay.updateMany({
+      where: {
+        dietPlanId: planId,
+        date: { gte: new Date(`${fromDate}T00:00:00.000Z`), lte: new Date(`${toDate}T00:00:00.000Z`) },
+      },
+      data,
+    });
+
+    return res.json({ updatedCount: result.count });
+  } catch (err) {
+    console.error('[admin/diet-plans/:id/days/bulk-fill]', err);
+    return res.status(500).json({ error: 'Could not bulk-fill diet plan days' });
+  }
+});
+
 // PUT /api/admin/diet-plans/:id/days/:dayId
 router.put('/diet-plans/:id/days/:dayId', async (req, res) => {
   try {
