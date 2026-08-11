@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Nav from './components/Nav';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
@@ -17,8 +17,11 @@ function HomeRedirect() {
 }
 
 export default function App() {
+  const location = useLocation();
+  const isClientDashboard = location.pathname.startsWith('/dashboard');
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className={`min-h-screen flex flex-col ${isClientDashboard ? 'diet-bg' : ''}`}>
       <Nav />
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6">
         <Routes>

@@ -122,9 +122,9 @@ export default function ClientDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Hi {user?.name?.split(' ')[0]}</h1>
-        <p className="text-sm text-gray-500">Here's your plan and progress.</p>
+      <div className="rounded-lg bg-gradient-to-r from-brand-600 to-brand-500 text-white px-5 py-6 shadow-sm">
+        <h1 className="text-2xl font-bold">Hi {user?.name?.split(' ')[0]} 🥗</h1>
+        <p className="text-sm text-brand-50">Here's your plan and progress.</p>
       </div>
 
       <div className="card">
