@@ -14,6 +14,54 @@ function formatPlanText(day) {
     .join('\n');
 }
 
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+function formatPlanHtml(day) {
+  const dateLabel = day.date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  const rows = day.meals
+    .map(
+      (m, i) => `
+        <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+          <td style="padding:10px 12px; border:1px solid #e5e7eb; white-space:nowrap; color:#374151;">${escapeHtml(m.time)}</td>
+          <td style="padding:10px 12px; border:1px solid #e5e7eb; font-weight:600; color:#111827;">${escapeHtml(m.name)}</td>
+          <td style="padding:10px 12px; border:1px solid #e5e7eb; color:#374151;">${escapeHtml(m.description) || '-'}</td>
+        </tr>`,
+    )
+    .join('');
+
+  return `
+    <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color:#1f2937;">
+      <h2 style="color:#16a34a; margin:0 0 4px;">Your Diet Plan</h2>
+      <p style="color:#6b7280; margin:0 0 16px; font-size:14px;">${escapeHtml(dateLabel)}</p>
+      <table style="width:100%; border-collapse: collapse; font-size:14px;">
+        <thead>
+          <tr style="background:#16a34a; color:#ffffff; text-align:left;">
+            <th style="padding:10px 12px; border:1px solid #16a34a;">Time</th>
+            <th style="padding:10px 12px; border:1px solid #16a34a;">Meal</th>
+            <th style="padding:10px 12px; border:1px solid #16a34a;">What to eat</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${
+        day.notes
+          ? `<p style="margin-top:16px; font-size:14px;"><strong>Notes:</strong> ${escapeHtml(day.notes)}</p>`
+          : ''
+      }
+      <p style="color:#9ca3af; font-size:12px; margin-top:24px;">Sent by DietTrack</p>
+    </div>`;
+}
+
 /**
  * Runs once per minute. For every user whose notifyTime matches the current
  * server-local HH:mm and who has a diet plan day for today, delivers it via
@@ -60,7 +108,7 @@ async function runNotificationTick() {
           to: user.email,
           subject: "Your DietTrack plan for today",
           text: planText,
-          html: `<pre style="font-family:inherit">${planText}</pre>`,
+          html: formatPlanHtml(day),
         });
         // eslint-disable-next-line no-await-in-loop
         await prisma.sendLog.create({
