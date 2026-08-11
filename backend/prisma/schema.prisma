@@ -1,0 +1,102 @@
+// DietTrack Prisma schema
+// Uses SQLite for easy local dev. To move to Postgres later:
+//   1. change provider below from "sqlite" to "postgresql"
+//   2. set DATABASE_URL in .env to a Postgres connection string
+//   3. re-run `npx prisma migrate dev`
+// NOTE: SQLite does not support native enum types, so role/channel/status
+// fields are plain Strings with values enforced in application code:
+//   User.role       -> "ADMIN" | "USER"
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  role           String   @default("USER") // "ADMIN" | "USER"
+  name           String
+  email          String   @unique
+  passwordHash   String
+  mobile         String?
+  heightCm       Float?
+  age            Int?
+  notifyTime     String   @default("08:00") // "HH:mm", server local time
+  notifyEmail    Boolean  @default(true)
+  notifyWhatsapp Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  weightLogs        WeightLog[]
+  dietPlans          DietPlan[]
+  passwordResetOtps PasswordResetOtp[]
+  sendLogs           SendLog[]
+}
+
+model WeightLog {
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weightKg Float
+  loggedAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model DietPlan {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month     String // "YYYY-MM"
+  createdAt DateTime @default(now())
+
+  days DietPlanDay[]
+
+  @@unique([userId, month])
+}
+
+model DietPlanDay {
+  id         Int      @id @default(autoincrement())
+  dietPlanId Int
+  dietPlan   DietPlan @relation(fields: [dietPlanId], references: [id], onDelete: Cascade)
+  date       DateTime // date-only, stored at UTC midnight
+  breakfast  String   @default("")
+  lunch      String   @default("")
+  dinner     String   @default("")
+  snacks     String   @default("")
+  notes      String?
+
+  sendLogs SendLog[]
+
+  @@unique([dietPlanId, date])
+}
+
+model PasswordResetOtp {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otpHash   String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model SendLog {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dietPlanDayId Int
+  dietPlanDay   DietPlanDay @relation(fields: [dietPlanDayId], references: [id], onDelete: Cascade)
+  channel       String // "EMAIL" | "WHATSAPP"
+  status        String // "SENT" | "SKIPPED" | "FAILED"
+  sentAt        DateTime    @default(now())
+
+  @@index([userId])
+  @@index([dietPlanDayId])
+}

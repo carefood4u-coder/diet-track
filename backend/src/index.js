@@ -1,0 +1,11 @@
+require('dotenv').config();
+
+const app = require('./app');
+const { startScheduler } = require('./scheduler/cron');
+
+const PORT = process.env.PORT || 4000;
+
+app.listen(PORT, () => {
+  console.log(`DietTrack backend listening on port ${PORT}`);
+  startScheduler();
+});

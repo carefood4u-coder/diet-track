@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+!.env.example
+
+# SQLite local dev database
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+*.log
+.DS_Store
+.claude/settings.local.json
