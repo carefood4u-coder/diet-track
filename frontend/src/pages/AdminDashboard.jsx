@@ -52,6 +52,10 @@ export default function AdminDashboard() {
   const [deletingId, setDeletingId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkActing, setBulkActing] = useState(false);
+  const [bulkDeleteConfirming, setBulkDeleteConfirming] = useState(false);
+
   async function loadUsers() {
     setLoading(true);
     setError('');
@@ -124,6 +128,44 @@ export default function AdminDashboard() {
     }
   }
 
+  function toggleSelect(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function bulkArchive(archived) {
+    setBulkActing(true);
+    setError('');
+    try {
+      await Promise.all(Array.from(selectedIds).map((id) => api.put(`/admin/users/${id}/archive`, { archived })));
+      setSelectedIds(new Set());
+    } catch (err) {
+      setError(errorMessage(err, 'Could not update archive status for all selected accounts'));
+    } finally {
+      setBulkActing(false);
+      loadUsers();
+    }
+  }
+
+  async function bulkDelete() {
+    setBulkActing(true);
+    setError('');
+    try {
+      await Promise.all(Array.from(selectedIds).map((id) => api.delete(`/admin/users/${id}`)));
+      setSelectedIds(new Set());
+      setBulkDeleteConfirming(false);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not delete all selected accounts'));
+    } finally {
+      setBulkActing(false);
+      loadUsers();
+    }
+  }
+
   const searchTerm = search.trim().toLowerCase();
   const displayedUsers = (showArchived ? users.filter((u) => u.archivedAt) : users)
     .filter((u) => roleFilter === 'ALL' || u.role === roleFilter)
@@ -135,6 +177,20 @@ export default function AdminDashboard() {
         u.email.toLowerCase().includes(searchTerm) ||
         (u.mobile || '').toLowerCase().includes(searchTerm)
     );
+
+  const allDisplayedSelected = displayedUsers.length > 0 && displayedUsers.every((u) => selectedIds.has(u.id));
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allDisplayedSelected) {
+        displayedUsers.forEach((u) => next.delete(u.id));
+      } else {
+        displayedUsers.forEach((u) => next.add(u.id));
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -270,6 +326,60 @@ export default function AdminDashboard() {
         </label>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 flex-wrap rounded-md bg-brand-50 border border-brand-100 px-3 py-2">
+          <span className="text-sm text-brand-700 font-medium">{selectedIds.size} selected</span>
+          {showArchived ? (
+            <button
+              type="button"
+              className="btn-secondary py-1 px-2 text-xs"
+              disabled={bulkActing}
+              onClick={() => bulkArchive(false)}
+            >
+              Unarchive selected
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-secondary py-1 px-2 text-xs"
+              disabled={bulkActing}
+              onClick={() => bulkArchive(true)}
+            >
+              Archive selected
+            </button>
+          )}
+          {bulkDeleteConfirming ? (
+            <>
+              <button type="button" className="btn-danger py-1 px-2 text-xs" disabled={bulkActing} onClick={bulkDelete}>
+                {bulkActing ? 'Deleting...' : 'Confirm delete selected'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary py-1 px-2 text-xs"
+                onClick={() => setBulkDeleteConfirming(false)}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="btn-danger py-1 px-2 text-xs"
+              onClick={() => setBulkDeleteConfirming(true)}
+            >
+              Delete selected
+            </button>
+          )}
+          <button
+            type="button"
+            className="text-xs text-gray-500 hover:underline"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
       <div className="card overflow-x-auto">
         {loading ? (
           <p className="text-sm text-gray-500">Loading...</p>
@@ -285,6 +395,9 @@ export default function AdminDashboard() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b border-gray-200">
+                <th className="py-2 pr-4">
+                  <input type="checkbox" checked={allDisplayedSelected} onChange={toggleSelectAll} aria-label="Select all" />
+                </th>
                 <th className="py-2 pr-4">Name</th>
                 <th className="py-2 pr-4">Email</th>
                 <th className="py-2 pr-4">Role</th>
@@ -300,6 +413,14 @@ export default function AdminDashboard() {
             <tbody>
               {displayedUsers.map((c) => (
                 <tr key={c.id} className={`border-b border-gray-100 last:border-0 ${c.archivedAt ? 'opacity-50' : ''}`}>
+                  <td className="py-2 pr-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(c.id)}
+                      onChange={() => toggleSelect(c.id)}
+                      aria-label={`Select ${c.name}`}
+                    />
+                  </td>
                   <td className="py-2 pr-4 font-medium">
                     {c.name}
                     {c.archivedAt && <span className="ml-2 text-xs text-gray-400">(archived)</span>}
