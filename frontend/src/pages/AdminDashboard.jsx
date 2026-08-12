@@ -40,6 +40,9 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [archivingId, setArchivingId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [subscriptionFilter, setSubscriptionFilter] = useState('ALL');
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -121,7 +124,17 @@ export default function AdminDashboard() {
     }
   }
 
-  const displayedUsers = showArchived ? users.filter((u) => u.archivedAt) : users;
+  const searchTerm = search.trim().toLowerCase();
+  const displayedUsers = (showArchived ? users.filter((u) => u.archivedAt) : users)
+    .filter((u) => roleFilter === 'ALL' || u.role === roleFilter)
+    .filter((u) => subscriptionFilter === 'ALL' || subscriptionStatus(u.subscriptionStartsAt, u.subscriptionEndsAt).label === subscriptionFilter)
+    .filter(
+      (u) =>
+        !searchTerm ||
+        u.name.toLowerCase().includes(searchTerm) ||
+        u.email.toLowerCase().includes(searchTerm) ||
+        (u.mobile || '').toLowerCase().includes(searchTerm)
+    );
 
   return (
     <div className="space-y-6">
@@ -224,17 +237,49 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <label className="flex items-center gap-2 text-sm text-gray-600">
-        <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-        Show archived accounts only
-      </label>
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="flex-1 min-w-[200px]">
+          <label className="label">Search</label>
+          <input
+            className="input"
+            placeholder="Name, email, or mobile"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="label">Role</label>
+          <select className="input" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+            <option value="ALL">All roles</option>
+            <option value="USER">Client</option>
+            <option value="ADMIN">Trainer</option>
+          </select>
+        </div>
+        <div>
+          <label className="label">Subscription</label>
+          <select className="input" value={subscriptionFilter} onChange={(e) => setSubscriptionFilter(e.target.value)}>
+            <option value="ALL">All</option>
+            <option value="Active">Active</option>
+            <option value="Subscription ends">Subscription ends</option>
+            <option value="Not yet purchased">Not yet purchased</option>
+          </select>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-600 py-2">
+          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+          Show archived accounts only
+        </label>
+      </div>
 
       <div className="card overflow-x-auto">
         {loading ? (
           <p className="text-sm text-gray-500">Loading...</p>
         ) : displayedUsers.length === 0 ? (
           <p className="text-sm text-gray-500">
-            {showArchived ? 'No archived accounts.' : 'No accounts yet. Add your first one above.'}
+            {users.length === 0
+              ? 'No accounts yet. Add your first one above.'
+              : showArchived
+                ? 'No archived accounts match these filters.'
+                : 'No accounts match these filters.'}
           </p>
         ) : (
           <table className="min-w-full text-sm">
