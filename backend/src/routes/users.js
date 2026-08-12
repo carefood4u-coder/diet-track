@@ -30,16 +30,19 @@ const ROUTINE_FIELDS = [
   'sleepTime',
 ];
 
-// PUT /api/users/me { name, email, mobile, heightCm, age, bloodGroup, wakeUpTime, breakfastTime, lunchTime, eveningTeaTime, dinnerTime, sleepTime }
+// PUT /api/users/me { name, mobile, heightCm, dateOfBirth, bloodGroup, wakeUpTime, breakfastTime, lunchTime, eveningTeaTime, dinnerTime, sleepTime }
+// Note: email is intentionally not editable here - only a trainer can
+// change a client's email, via PUT /admin/users/:id/profile.
 router.put('/me', async (req, res) => {
   try {
-    const { name, email, mobile, heightCm, age } = req.body || {};
+    const { name, mobile, heightCm, dateOfBirth } = req.body || {};
     const data = {};
     if (name !== undefined) data.name = name;
-    if (email !== undefined) data.email = email.toLowerCase().trim();
     if (mobile !== undefined) data.mobile = mobile;
     if (heightCm !== undefined) data.heightCm = heightCm === null ? null : Number(heightCm);
-    if (age !== undefined) data.age = age === null ? null : Number(age);
+    if (dateOfBirth !== undefined) {
+      data.dateOfBirth = dateOfBirth ? new Date(`${dateOfBirth}T00:00:00.000Z`) : null;
+    }
     ROUTINE_FIELDS.forEach((field) => {
       if (req.body[field] !== undefined) data[field] = req.body[field] || null;
     });
@@ -47,9 +50,6 @@ router.put('/me', async (req, res) => {
     const user = await prisma.user.update({ where: { id: req.user.id }, data });
     return res.json(publicUser(user));
   } catch (err) {
-    if (err.code === 'P2002') {
-      return res.status(409).json({ error: 'Email is already in use' });
-    }
     console.error('[users/me PUT]', err);
     return res.status(500).json({ error: 'Could not update profile' });
   }
@@ -103,21 +103,26 @@ router.get('/me/diet-plan/today', async (req, res) => {
   }
 });
 
-// GET /api/users/me/diet-plan?month=YYYY-MM
-router.get('/me/diet-plan', async (req, res) => {
+// GET /api/users/me/diet-plan/range?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Returns diet plan days across any date range (can span multiple months),
+// used for the client dashboard's sliding day window / custom range view.
+router.get('/me/diet-plan/range', async (req, res) => {
   try {
-    const { month } = req.query;
-    if (!month) return res.status(400).json({ error: 'month query param (YYYY-MM) is required' });
+    const { from, to } = req.query;
+    if (!from || !to) return res.status(400).json({ error: 'from and to (YYYY-MM-DD) query params are required' });
 
-    const plan = await prisma.dietPlan.findUnique({
-      where: { userId_month: { userId: req.user.id, month } },
-      include: { days: { include: { meals: { orderBy: { time: 'asc' } } }, orderBy: { date: 'asc' } } },
+    const days = await prisma.dietPlanDay.findMany({
+      where: {
+        dietPlan: { userId: req.user.id },
+        date: { gte: new Date(`${from}T00:00:00.000Z`), lte: new Date(`${to}T00:00:00.000Z`) },
+      },
+      include: { meals: { orderBy: { time: 'asc' } } },
+      orderBy: { date: 'asc' },
     });
 
-    if (!plan) return res.json({ plan: null, days: [] });
-    return res.json(plan);
+    return res.json({ days });
   } catch (err) {
-    console.error('[users/me/diet-plan GET]', err);
+    console.error('[users/me/diet-plan/range GET]', err);
     return res.status(500).json({ error: 'Could not load diet plan' });
   }
 });

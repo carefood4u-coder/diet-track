@@ -20,7 +20,7 @@ model User {
   passwordHash   String
   mobile         String?
   heightCm       Float?
-  age            Int?
+  dateOfBirth    DateTime? // age is calculated from this, not stored
   bloodGroup     String?
   // Daily routine timings ("HH:mm"), used by the trainer to plan meal
   // timing around the client's actual schedule.
@@ -38,6 +38,9 @@ model User {
   // subscriptionStartsAt means "not yet purchased" - no notifications send.
   subscriptionStartsAt DateTime?
   subscriptionEndsAt   DateTime?
+  // Soft-delete: archived clients are hidden from the default client list
+  // but their data (weight logs, diet plans, etc.) is kept.
+  archivedAt     DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

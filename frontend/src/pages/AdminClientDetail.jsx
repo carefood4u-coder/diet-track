@@ -1,10 +1,22 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api, { errorMessage } from '../api/client';
 import WeightChart from '../components/WeightChart';
 
 function currentMonthStr() {
   return new Date().toISOString().slice(0, 7);
+}
+
+function calculateAge(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
 }
 
 const ROUTINE_FIELDS = [
@@ -94,10 +106,21 @@ function MealsEditor({ meals, onChange }) {
 
 export default function AdminClientDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Admin-editable profile (includes email, unlike the client's own form)
+  const [profile, setProfile] = useState({ name: '', email: '', mobile: '', heightCm: '', dateOfBirth: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+
+  // Archive / delete
+  const [archiving, setArchiving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
 
   // Notify settings form state
   const [notifyTime, setNotifyTime] = useState('08:00');
@@ -149,6 +172,13 @@ export default function AdminClientDetail() {
     try {
       const res = await api.get(`/admin/users/${id}`);
       setClient(res.data);
+      setProfile({
+        name: res.data.name || '',
+        email: res.data.email || '',
+        mobile: res.data.mobile || '',
+        heightCm: res.data.heightCm ?? '',
+        dateOfBirth: res.data.dateOfBirth ? res.data.dateOfBirth.slice(0, 10) : '',
+      });
       setNotifyTime(res.data.notifyTime || '08:00');
       setNotifyEmail(!!res.data.notifyEmail);
       setNotifyWhatsapp(!!res.data.notifyWhatsapp);
@@ -213,6 +243,50 @@ export default function AdminClientDetail() {
   useEffect(() => {
     loadSendLogs();
   }, [loadSendLogs]);
+
+  async function saveProfile(e) {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileMessage('');
+    try {
+      const res = await api.put(`/admin/users/${id}/profile`, {
+        name: profile.name,
+        email: profile.email,
+        mobile: profile.mobile,
+        heightCm: profile.heightCm === '' ? null : Number(profile.heightCm),
+        dateOfBirth: profile.dateOfBirth || null,
+      });
+      setClient((prev) => ({ ...prev, ...res.data }));
+      setProfileMessage('Profile saved.');
+    } catch (err) {
+      setProfileMessage(errorMessage(err, 'Could not save profile'));
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function toggleArchive() {
+    setArchiving(true);
+    try {
+      const res = await api.put(`/admin/users/${id}/archive`, { archived: !client.archivedAt });
+      setClient((prev) => ({ ...prev, ...res.data }));
+    } catch (err) {
+      setError(errorMessage(err, 'Could not update archive status'));
+    } finally {
+      setArchiving(false);
+    }
+  }
+
+  async function deleteClient() {
+    setDeleting(true);
+    try {
+      await api.delete(`/admin/users/${id}`);
+      navigate('/admin');
+    } catch (err) {
+      setError(errorMessage(err, 'Could not delete client'));
+      setDeleting(false);
+    }
+  }
 
   async function saveNotifySettings(e) {
     e.preventDefault();
@@ -353,27 +427,97 @@ export default function AdminClientDetail() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link to="/admin" className="text-sm text-brand-600 hover:underline">
-          &larr; Back to clients
-        </Link>
-        <h1 className="text-2xl font-bold mt-2">{client.name}</h1>
-        <p className="text-sm text-gray-500">{client.email}</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <Link to="/admin" className="text-sm text-brand-600 hover:underline">
+            &larr; Back to clients
+          </Link>
+          <h1 className="text-2xl font-bold mt-2">
+            {client.name}
+            {client.archivedAt && <span className="ml-2 text-sm font-normal text-gray-400">(archived)</span>}
+          </h1>
+          <p className="text-sm text-gray-500">{client.email}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" className="btn-secondary" disabled={archiving} onClick={toggleArchive}>
+            {archiving ? 'Saving...' : client.archivedAt ? 'Unarchive' : 'Archive'}
+          </button>
+          {deleteConfirming ? (
+            <>
+              <button type="button" className="btn-danger" disabled={deleting} onClick={deleteClient}>
+                {deleting ? 'Deleting...' : 'Confirm delete'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setDeleteConfirming(false)}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn-danger" onClick={() => setDeleteConfirming(true)}>
+              Delete
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card">
           <h2 className="font-semibold mb-4">Profile</h2>
-          <dl className="grid grid-cols-2 gap-y-2 text-sm">
-            <dt className="text-gray-500">Mobile</dt>
-            <dd>{client.mobile || '-'}</dd>
-            <dt className="text-gray-500">Height</dt>
-            <dd>{client.heightCm ? `${client.heightCm} cm` : '-'}</dd>
-            <dt className="text-gray-500">Age</dt>
-            <dd>{client.age ?? '-'}</dd>
-            <dt className="text-gray-500">Latest weight</dt>
-            <dd>{latest ? `${latest.weightKg} kg (${new Date(latest.loggedAt).toLocaleDateString()})` : '-'}</dd>
-          </dl>
+          <form onSubmit={saveProfile} className="space-y-3">
+            <div>
+              <label className="label">Name</label>
+              <input
+                className="input"
+                value={profile.name}
+                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Email</label>
+              <input
+                type="email"
+                className="input"
+                value={profile.email}
+                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Mobile</label>
+              <input
+                className="input"
+                value={profile.mobile}
+                onChange={(e) => setProfile({ ...profile, mobile: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Height (cm)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="input"
+                  value={profile.heightCm}
+                  onChange={(e) => setProfile({ ...profile, heightCm: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="label">Date of birth</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={profile.dateOfBirth}
+                  onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Age: {calculateAge(profile.dateOfBirth) ?? '-'}
+              {latest && ` · Latest weight: ${latest.weightKg} kg (${new Date(latest.loggedAt).toLocaleDateString()})`}
+            </p>
+            <button type="submit" className="btn-primary" disabled={profileSaving}>
+              {profileSaving ? 'Saving...' : 'Save'}
+            </button>
+            {profileMessage && <p className="text-xs text-gray-600">{profileMessage}</p>}
+          </form>
         </div>
 
         <div className="card">

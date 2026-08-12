@@ -2,7 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { errorMessage } from '../api/client';
 
-const emptyForm = { name: '', email: '', mobile: '', heightCm: '', age: '', password: '' };
+const emptyForm = { name: '', email: '', mobile: '', heightCm: '', dateOfBirth: '', password: '', role: 'USER' };
+
+function calculateAge(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
 
 function subscriptionStatus(subscriptionStartsAt, subscriptionEndsAt) {
   if (!subscriptionStartsAt && !subscriptionEndsAt) {
@@ -26,17 +38,22 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivingId, setArchivingId] = useState(null);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [creating, setCreating] = useState(false);
   const [createdInfo, setCreatedInfo] = useState('');
 
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
   async function loadUsers() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/admin/users');
+      const res = await api.get('/admin/users', { params: { includeArchived: showArchived } });
       setUsers(res.data);
     } catch (err) {
       setError(errorMessage(err, 'Could not load clients'));
@@ -47,7 +64,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [showArchived]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -58,17 +75,17 @@ export default function AdminDashboard() {
       const res = await api.post('/admin/users', {
         ...form,
         heightCm: form.heightCm ? Number(form.heightCm) : undefined,
-        age: form.age ? Number(form.age) : undefined,
+        dateOfBirth: form.dateOfBirth || undefined,
         password: form.password || undefined,
       });
       setForm(emptyForm);
       setShowAddForm(false);
       if (res.data.tempPassword) {
         setCreatedInfo(
-          `Client "${res.data.user.name}" created. Temporary password: ${res.data.tempPassword} (share this with them securely).`
+          `${form.role === 'ADMIN' ? 'Trainer' : 'Client'} "${res.data.user.name}" created. Temporary password: ${res.data.tempPassword} (share this with them securely).`
         );
       } else {
-        setCreatedInfo(`Client "${res.data.user.name}" created.`);
+        setCreatedInfo(`${form.role === 'ADMIN' ? 'Trainer' : 'Client'} "${res.data.user.name}" created.`);
       }
       loadUsers();
     } catch (err) {
@@ -78,17 +95,41 @@ export default function AdminDashboard() {
     }
   }
 
-  const clients = users.filter((u) => u.role !== 'ADMIN');
+  async function toggleArchive(user) {
+    setArchivingId(user.id);
+    try {
+      await api.put(`/admin/users/${user.id}/archive`, { archived: !user.archivedAt });
+      loadUsers();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not update archive status'));
+    } finally {
+      setArchivingId(null);
+    }
+  }
+
+  async function confirmDelete(id) {
+    setDeletingId(id);
+    setError('');
+    try {
+      await api.delete(`/admin/users/${id}`);
+      setDeleteConfirmId(null);
+      loadUsers();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not delete user'));
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Clients</h1>
-          <p className="text-sm text-gray-500">Manage your clients and their diet plans.</p>
+          <h1 className="text-2xl font-bold">Clients &amp; Trainers</h1>
+          <p className="text-sm text-gray-500">Manage accounts and their diet plans.</p>
         </div>
         <button type="button" className="btn-primary" onClick={() => setShowAddForm((s) => !s)}>
-          {showAddForm ? 'Cancel' : '+ Add Client'}
+          {showAddForm ? 'Cancel' : '+ Add Account'}
         </button>
       </div>
 
@@ -103,7 +144,7 @@ export default function AdminDashboard() {
 
       {showAddForm && (
         <div className="card">
-          <h2 className="font-semibold mb-4">Add a new client</h2>
+          <h2 className="font-semibold mb-4">Add a new account</h2>
           <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Name</label>
@@ -125,6 +166,17 @@ export default function AdminDashboard() {
               />
             </div>
             <div>
+              <label className="label">Role</label>
+              <select
+                className="input"
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+              >
+                <option value="USER">Client</option>
+                <option value="ADMIN">Trainer</option>
+              </select>
+            </div>
+            <div>
               <label className="label">Mobile</label>
               <input
                 className="input"
@@ -144,12 +196,12 @@ export default function AdminDashboard() {
               />
             </div>
             <div>
-              <label className="label">Age</label>
+              <label className="label">Date of birth</label>
               <input
-                type="number"
+                type="date"
                 className="input"
-                value={form.age}
-                onChange={(e) => setForm({ ...form, age: e.target.value })}
+                value={form.dateOfBirth}
+                onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
               />
             </div>
             <div>
@@ -163,24 +215,30 @@ export default function AdminDashboard() {
             </div>
             <div className="sm:col-span-2">
               <button type="submit" className="btn-primary" disabled={creating}>
-                {creating ? 'Creating...' : 'Create client'}
+                {creating ? 'Creating...' : 'Create account'}
               </button>
             </div>
           </form>
         </div>
       )}
 
+      <label className="flex items-center gap-2 text-sm text-gray-600">
+        <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+        Show archived accounts
+      </label>
+
       <div className="card overflow-x-auto">
         {loading ? (
           <p className="text-sm text-gray-500">Loading...</p>
-        ) : clients.length === 0 ? (
-          <p className="text-sm text-gray-500">No clients yet. Add your first client above.</p>
+        ) : users.length === 0 ? (
+          <p className="text-sm text-gray-500">No accounts yet. Add your first one above.</p>
         ) : (
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b border-gray-200">
                 <th className="py-2 pr-4">Name</th>
                 <th className="py-2 pr-4">Email</th>
+                <th className="py-2 pr-4">Role</th>
                 <th className="py-2 pr-4">Mobile</th>
                 <th className="py-2 pr-4">Height</th>
                 <th className="py-2 pr-4">Age</th>
@@ -191,13 +249,17 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {clients.map((c) => (
-                <tr key={c.id} className="border-b border-gray-100 last:border-0">
-                  <td className="py-2 pr-4 font-medium">{c.name}</td>
+              {users.map((c) => (
+                <tr key={c.id} className={`border-b border-gray-100 last:border-0 ${c.archivedAt ? 'opacity-50' : ''}`}>
+                  <td className="py-2 pr-4 font-medium">
+                    {c.name}
+                    {c.archivedAt && <span className="ml-2 text-xs text-gray-400">(archived)</span>}
+                  </td>
                   <td className="py-2 pr-4">{c.email}</td>
+                  <td className="py-2 pr-4">{c.role === 'ADMIN' ? 'Trainer' : 'Client'}</td>
                   <td className="py-2 pr-4">{c.mobile || '-'}</td>
                   <td className="py-2 pr-4">{c.heightCm ? `${c.heightCm} cm` : '-'}</td>
-                  <td className="py-2 pr-4">{c.age ?? '-'}</td>
+                  <td className="py-2 pr-4">{calculateAge(c.dateOfBirth) ?? '-'}</td>
                   <td className="py-2 pr-4">{c.latestWeightKg ? `${c.latestWeightKg} kg` : '-'}</td>
                   <td className="py-2 pr-4">
                     {c.latestWeightAt ? new Date(c.latestWeightAt).toLocaleDateString() : '-'}
@@ -208,9 +270,46 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="py-2 pr-4">
-                    <Link to={`/admin/clients/${c.id}`} className="btn-secondary py-1 px-2 text-xs">
-                      View
-                    </Link>
+                    <div className="flex flex-wrap gap-2">
+                      <Link to={`/admin/clients/${c.id}`} className="btn-secondary py-1 px-2 text-xs">
+                        View
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn-secondary py-1 px-2 text-xs"
+                        disabled={archivingId === c.id}
+                        onClick={() => toggleArchive(c)}
+                      >
+                        {archivingId === c.id ? '...' : c.archivedAt ? 'Unarchive' : 'Archive'}
+                      </button>
+                      {deleteConfirmId === c.id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn-danger py-1 px-2 text-xs"
+                            disabled={deletingId === c.id}
+                            onClick={() => confirmDelete(c.id)}
+                          >
+                            {deletingId === c.id ? 'Deleting...' : 'Confirm delete'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary py-1 px-2 text-xs"
+                            onClick={() => setDeleteConfirmId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn-danger py-1 px-2 text-xs"
+                          onClick={() => setDeleteConfirmId(c.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

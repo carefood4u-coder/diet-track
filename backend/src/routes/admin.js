@@ -18,10 +18,13 @@ function randomPassword() {
   return Math.random().toString(36).slice(-8) + Math.floor(Math.random() * 10);
 }
 
-// GET /api/admin/users - list all clients with latest weight
+// GET /api/admin/users - list clients with latest weight.
+// Archived clients are hidden unless ?includeArchived=true.
 router.get('/users', async (req, res) => {
   try {
+    const includeArchived = req.query.includeArchived === 'true';
     const users = await prisma.user.findMany({
+      where: includeArchived ? {} : { archivedAt: null },
       orderBy: { createdAt: 'asc' },
       include: {
         weightLogs: { orderBy: { loggedAt: 'desc' }, take: 1 },
@@ -44,10 +47,10 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// POST /api/admin/users - create a client account
+// POST /api/admin/users - create a client or trainer account
 router.post('/users', async (req, res) => {
   try {
-    const { name, email, mobile, heightCm, age, password, role } = req.body || {};
+    const { name, email, mobile, heightCm, dateOfBirth, password, role } = req.body || {};
     if (!name || !email) {
       return res.status(400).json({ error: 'name and email are required' });
     }
@@ -61,7 +64,7 @@ router.post('/users', async (req, res) => {
         email: email.toLowerCase().trim(),
         mobile: mobile || null,
         heightCm: heightCm !== undefined ? Number(heightCm) : null,
-        age: age !== undefined ? Number(age) : null,
+        dateOfBirth: dateOfBirth ? new Date(`${dateOfBirth}T00:00:00.000Z`) : null,
         passwordHash,
         role: role === 'ADMIN' ? 'ADMIN' : 'USER',
       },
@@ -99,6 +102,75 @@ router.get('/users/:id', async (req, res) => {
   } catch (err) {
     console.error('[admin/users/:id GET]', err);
     return res.status(500).json({ error: 'Could not load user' });
+  }
+});
+
+// PUT /api/admin/users/:id/profile { name, email, mobile, heightCm, dateOfBirth }
+// Admin-only profile edit. Unlike the client's own PUT /users/me, this can
+// change the email address - clients cannot change their own email.
+router.put('/users/:id/profile', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { name, email, mobile, heightCm, dateOfBirth } = req.body || {};
+
+    const data = {};
+    if (name !== undefined) data.name = name;
+    if (email !== undefined) data.email = email.toLowerCase().trim();
+    if (mobile !== undefined) data.mobile = mobile;
+    if (heightCm !== undefined) data.heightCm = heightCm === null || heightCm === '' ? null : Number(heightCm);
+    if (dateOfBirth !== undefined) data.dateOfBirth = dateOfBirth ? new Date(`${dateOfBirth}T00:00:00.000Z`) : null;
+
+    const user = await prisma.user.update({ where: { id }, data });
+    return res.json(publicUser(user));
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (err.code === 'P2002') {
+      return res.status(409).json({ error: 'Email is already in use' });
+    }
+    console.error('[admin/users/:id/profile PUT]', err);
+    return res.status(500).json({ error: 'Could not update profile' });
+  }
+});
+
+// PUT /api/admin/users/:id/archive { archived: boolean }
+// Soft-delete: archived clients are hidden from the default list but their
+// data (weight logs, diet plans, send logs) is kept.
+router.put('/users/:id/archive', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { archived } = req.body || {};
+    const user = await prisma.user.update({
+      where: { id },
+      data: { archivedAt: archived ? new Date() : null },
+    });
+    return res.json(publicUser(user));
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    console.error('[admin/users/:id/archive PUT]', err);
+    return res.status(500).json({ error: 'Could not update archive status' });
+  }
+});
+
+// DELETE /api/admin/users/:id - permanently deletes the account and all
+// related data (weight logs, diet plans, send logs cascade via the schema).
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (id === req.user.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+    await prisma.user.delete({ where: { id } });
+    return res.json({ message: 'User deleted' });
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    console.error('[admin/users/:id DELETE]', err);
+    return res.status(500).json({ error: 'Could not delete user' });
   }
 });
 

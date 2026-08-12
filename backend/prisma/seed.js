@@ -43,7 +43,7 @@ async function main() {
       passwordHash: clientPasswordHash,
       mobile: '+15551234567',
       heightCm: 172.5,
-      age: 29,
+      dateOfBirth: new Date('1997-03-15T00:00:00.000Z'),
       notifyTime: '08:00',
       notifyEmail: true,
       notifyWhatsapp: false,

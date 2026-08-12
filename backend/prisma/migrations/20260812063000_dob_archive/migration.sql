@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "dateOfBirth" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN "archivedAt" TIMESTAMP(3);
+ALTER TABLE "User" DROP COLUMN "age";

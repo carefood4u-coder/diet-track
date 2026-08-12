@@ -4,8 +4,30 @@ import WeightChart from '../components/WeightChart';
 import VeggieBackground from '../components/VeggieBackground';
 import { useAuth } from '../context/AuthContext';
 
-function currentMonthStr() {
-  return new Date().toISOString().slice(0, 7);
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysStr(dateStr, delta) {
+  const d = new Date(`${dateStr}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateLabel(dateStr, opts) {
+  return new Date(`${dateStr}T00:00:00.000Z`).toLocaleDateString(undefined, opts);
+}
+
+function calculateAge(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
 }
 
 const ROUTINE_FIELDS = [
@@ -28,7 +50,7 @@ export default function ClientDashboard() {
     email: '',
     mobile: '',
     heightCm: '',
-    age: '',
+    dateOfBirth: '',
     bloodGroup: '',
     wakeUpTime: '',
     breakfastTime: '',
@@ -46,9 +68,12 @@ export default function ClientDashboard() {
   const [weightSaving, setWeightSaving] = useState(false);
   const [weightError, setWeightError] = useState('');
 
-  const [month, setMonth] = useState(currentMonthStr());
-  const [monthPlan, setMonthPlan] = useState(null);
-  const [monthLoading, setMonthLoading] = useState(false);
+  const [viewMode, setViewMode] = useState('window'); // 'window' | 'custom'
+  const [centerDate, setCenterDate] = useState(todayStr());
+  const [customFrom, setCustomFrom] = useState(todayStr());
+  const [customTo, setCustomTo] = useState(todayStr());
+  const [rangeDays, setRangeDays] = useState([]);
+  const [rangeLoading, setRangeLoading] = useState(false);
 
   const loadProfile = useCallback(async () => {
     const res = await api.get('/users/me');
@@ -57,7 +82,7 @@ export default function ClientDashboard() {
       email: res.data.email || '',
       mobile: res.data.mobile || '',
       heightCm: res.data.heightCm ?? '',
-      age: res.data.age ?? '',
+      dateOfBirth: res.data.dateOfBirth ? res.data.dateOfBirth.slice(0, 10) : '',
       bloodGroup: res.data.bloodGroup || '',
       wakeUpTime: res.data.wakeUpTime || '',
       breakfastTime: res.data.breakfastTime || '',
@@ -85,17 +110,21 @@ export default function ClientDashboard() {
     setWeightLogs(res.data);
   }, []);
 
-  const loadMonthPlan = useCallback(async () => {
-    setMonthLoading(true);
+  const loadRange = useCallback(async () => {
+    const from = viewMode === 'custom' ? customFrom : addDaysStr(centerDate, -1);
+    const to = viewMode === 'custom' ? customTo : addDaysStr(centerDate, 1);
+    if (viewMode === 'custom' && (!customFrom || !customTo)) return;
+
+    setRangeLoading(true);
     try {
-      const res = await api.get('/users/me/diet-plan', { params: { month } });
-      setMonthPlan(res.data && res.data.id ? res.data : null);
+      const res = await api.get('/users/me/diet-plan/range', { params: { from, to } });
+      setRangeDays(res.data.days);
     } catch (err) {
       console.error(err);
     } finally {
-      setMonthLoading(false);
+      setRangeLoading(false);
     }
-  }, [month]);
+  }, [viewMode, centerDate, customFrom, customTo]);
 
   useEffect(() => {
     loadProfile();
@@ -104,8 +133,8 @@ export default function ClientDashboard() {
   }, [loadProfile, loadToday, loadWeightHistory]);
 
   useEffect(() => {
-    loadMonthPlan();
-  }, [loadMonthPlan]);
+    loadRange();
+  }, [loadRange]);
 
   async function saveProfile(e) {
     e.preventDefault();
@@ -115,10 +144,9 @@ export default function ClientDashboard() {
     try {
       const res = await api.put('/users/me', {
         name: profile.name,
-        email: profile.email,
         mobile: profile.mobile,
         heightCm: profile.heightCm === '' ? null : Number(profile.heightCm),
-        age: profile.age === '' ? null : Number(profile.age),
+        dateOfBirth: profile.dateOfBirth || null,
         bloodGroup: profile.bloodGroup,
         wakeUpTime: profile.wakeUpTime,
         breakfastTime: profile.breakfastTime,
@@ -217,12 +245,8 @@ export default function ClientDashboard() {
             </div>
             <div>
               <label className="label">Email</label>
-              <input
-                type="email"
-                className="input"
-                value={profile.email}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-              />
+              <input type="email" className="input bg-gray-100 text-gray-500" value={profile.email} disabled />
+              <p className="text-xs text-gray-500 mt-1">Contact your trainer to change your email address.</p>
             </div>
             <div>
               <label className="label">Mobile</label>
@@ -244,15 +268,16 @@ export default function ClientDashboard() {
                 />
               </div>
               <div>
-                <label className="label">Age</label>
+                <label className="label">Date of birth</label>
                 <input
-                  type="number"
+                  type="date"
                   className="input"
-                  value={profile.age}
-                  onChange={(e) => setProfile({ ...profile, age: e.target.value })}
+                  value={profile.dateOfBirth}
+                  onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })}
                 />
               </div>
             </div>
+            <p className="text-xs text-gray-500">Age: {calculateAge(profile.dateOfBirth) ?? '-'}</p>
             <div>
               <label className="label">Blood group</label>
               <input
@@ -333,48 +358,101 @@ export default function ClientDashboard() {
 
       <div className="card">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-          <h2 className="font-semibold">Month view</h2>
-          <input type="month" className="input" value={month} onChange={(e) => setMonth(e.target.value)} />
+          <h2 className="font-semibold">Diet plan</h2>
+          <button
+            type="button"
+            className="btn-secondary py-1 px-2 text-xs"
+            onClick={() => {
+              if (viewMode === 'custom') {
+                setViewMode('window');
+              } else {
+                setCustomFrom(centerDate);
+                setCustomTo(centerDate);
+                setViewMode('custom');
+              }
+            }}
+          >
+            {viewMode === 'custom' ? 'Back to 3-day view' : 'Custom date range'}
+          </button>
         </div>
-        {monthLoading ? (
-          <p className="text-sm text-gray-500">Loading...</p>
-        ) : !monthPlan ? (
-          <p className="text-sm text-gray-500">No diet plan for {month}.</p>
+
+        {viewMode === 'window' ? (
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <button
+              type="button"
+              className="btn-secondary py-1 px-3"
+              aria-label="Previous day"
+              onClick={() => setCenterDate((d) => addDaysStr(d, -1))}
+            >
+              &larr;
+            </button>
+            <span className="text-sm font-medium min-w-[160px] text-center">
+              {formatDateLabel(addDaysStr(centerDate, -1), { month: 'short', day: 'numeric' })}
+              {' – '}
+              {formatDateLabel(addDaysStr(centerDate, 1), { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+            <button
+              type="button"
+              className="btn-secondary py-1 px-3"
+              aria-label="Next day"
+              onClick={() => setCenterDate((d) => addDaysStr(d, 1))}
+            >
+              &rarr;
+            </button>
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 border-b border-gray-200">
-                  <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Meals</th>
-                  <th className="py-2 pr-4">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthPlan.days.map((d) => (
-                  <tr key={d.id} className="border-b border-gray-100 last:border-0 align-top">
-                    <td className="py-2 pr-4 whitespace-nowrap">{new Date(d.date).toLocaleDateString()}</td>
-                    <td className="py-2 pr-4">
-                      {d.meals.length === 0 ? (
-                        '-'
-                      ) : (
-                        <ul className="space-y-1">
-                          {d.meals.map((meal) => (
-                            <li key={meal.id}>
-                              <span className="text-gray-500">
-                                {meal.time} {meal.name}:
-                              </span>{' '}
-                              {meal.description || '-'}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </td>
-                    <td className="py-2 pr-4">{d.notes || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex items-end gap-3 mb-4 flex-wrap">
+            <div>
+              <label className="label">From</label>
+              <input type="date" className="input" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">To</label>
+              <input type="date" className="input" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {rangeLoading ? (
+          <p className="text-sm text-gray-500">Loading...</p>
+        ) : (
+          <div className="space-y-3">
+            {(viewMode === 'window'
+              ? [addDaysStr(centerDate, -1), centerDate, addDaysStr(centerDate, 1)]
+              : rangeDays.map((d) => d.date.slice(0, 10))
+            ).map((dateStr) => {
+              const day = rangeDays.find((d) => d.date.slice(0, 10) === dateStr);
+              return (
+                <div key={dateStr} className="border border-gray-200 rounded-md p-3">
+                  <p className="font-medium text-sm mb-2">
+                    {formatDateLabel(dateStr, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    {dateStr === todayStr() && <span className="ml-2 text-xs text-brand-600">Today</span>}
+                  </p>
+                  {!day || day.meals.length === 0 ? (
+                    <p className="text-sm text-gray-500">No plan set for this day.</p>
+                  ) : (
+                    <ul className="space-y-1 text-sm">
+                      {day.meals.map((meal) => (
+                        <li key={meal.id}>
+                          <span className="text-gray-500">
+                            {meal.time} {meal.name}:
+                          </span>{' '}
+                          {meal.description || '-'}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {day?.notes && (
+                    <p className="text-sm mt-2">
+                      <span className="text-gray-500">Notes:</span> {day.notes}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+            {viewMode === 'custom' && rangeDays.length === 0 && (
+              <p className="text-sm text-gray-500">No diet plan entries in this range.</p>
+            )}
           </div>
         )}
       </div>
