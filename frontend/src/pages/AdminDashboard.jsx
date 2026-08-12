@@ -121,6 +121,8 @@ export default function AdminDashboard() {
     }
   }
 
+  const displayedUsers = showArchived ? users.filter((u) => u.archivedAt) : users;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -224,14 +226,16 @@ export default function AdminDashboard() {
 
       <label className="flex items-center gap-2 text-sm text-gray-600">
         <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-        Show archived accounts
+        Show archived accounts only
       </label>
 
       <div className="card overflow-x-auto">
         {loading ? (
           <p className="text-sm text-gray-500">Loading...</p>
-        ) : users.length === 0 ? (
-          <p className="text-sm text-gray-500">No accounts yet. Add your first one above.</p>
+        ) : displayedUsers.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            {showArchived ? 'No archived accounts.' : 'No accounts yet. Add your first one above.'}
+          </p>
         ) : (
           <table className="min-w-full text-sm">
             <thead>
@@ -249,7 +253,7 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {users.map((c) => (
+              {displayedUsers.map((c) => (
                 <tr key={c.id} className={`border-b border-gray-100 last:border-0 ${c.archivedAt ? 'opacity-50' : ''}`}>
                   <td className="py-2 pr-4 font-medium">
                     {c.name}
