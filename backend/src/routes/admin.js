@@ -150,6 +150,36 @@ router.put('/users/:id/notify-settings', async (req, res) => {
   }
 });
 
+const ROUTINE_FIELDS = [
+  'bloodGroup',
+  'wakeUpTime',
+  'breakfastTime',
+  'lunchTime',
+  'eveningTeaTime',
+  'dinnerTime',
+  'sleepTime',
+];
+
+// PUT /api/admin/users/:id/routine { bloodGroup, wakeUpTime, breakfastTime, lunchTime, eveningTeaTime, dinnerTime, sleepTime }
+router.put('/users/:id/routine', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const data = {};
+    ROUTINE_FIELDS.forEach((field) => {
+      if (req.body[field] !== undefined) data[field] = req.body[field] || null;
+    });
+
+    const user = await prisma.user.update({ where: { id }, data });
+    return res.json(publicUser(user));
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    console.error('[admin/users/:id/routine]', err);
+    return res.status(500).json({ error: 'Could not update daily routine' });
+  }
+});
+
 // PUT /api/admin/users/:id/subscription { subscriptionStartsAt, subscriptionEndsAt }
 // Each is "YYYY-MM-DD" or null to clear that side.
 router.put('/users/:id/subscription', async (req, res) => {

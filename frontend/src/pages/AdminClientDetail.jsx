@@ -7,6 +7,25 @@ function currentMonthStr() {
   return new Date().toISOString().slice(0, 7);
 }
 
+const ROUTINE_FIELDS = [
+  { key: 'wakeUpTime', label: 'Wake up' },
+  { key: 'breakfastTime', label: 'Breakfast' },
+  { key: 'lunchTime', label: 'Lunch' },
+  { key: 'eveningTeaTime', label: 'Evening tea' },
+  { key: 'dinnerTime', label: 'Dinner' },
+  { key: 'sleepTime', label: 'Sleep' },
+];
+
+const EMPTY_ROUTINE = {
+  bloodGroup: '',
+  wakeUpTime: '',
+  breakfastTime: '',
+  lunchTime: '',
+  eveningTeaTime: '',
+  dinnerTime: '',
+  sleepTime: '',
+};
+
 function newMealKey() {
   return Math.random().toString(36).slice(2);
 }
@@ -109,6 +128,11 @@ export default function AdminClientDetail() {
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
   const [subscriptionMessage, setSubscriptionMessage] = useState('');
 
+  // Daily routine
+  const [routine, setRoutine] = useState(EMPTY_ROUTINE);
+  const [routineSaving, setRoutineSaving] = useState(false);
+  const [routineMessage, setRoutineMessage] = useState('');
+
   // Reset password
   const [resetPasswordValue, setResetPasswordValue] = useState('');
   const [resetSaving, setResetSaving] = useState(false);
@@ -130,6 +154,15 @@ export default function AdminClientDetail() {
       setNotifyWhatsapp(!!res.data.notifyWhatsapp);
       setSubscriptionStartsAt(res.data.subscriptionStartsAt ? res.data.subscriptionStartsAt.slice(0, 10) : '');
       setSubscriptionEndsAt(res.data.subscriptionEndsAt ? res.data.subscriptionEndsAt.slice(0, 10) : '');
+      setRoutine({
+        bloodGroup: res.data.bloodGroup || '',
+        wakeUpTime: res.data.wakeUpTime || '',
+        breakfastTime: res.data.breakfastTime || '',
+        lunchTime: res.data.lunchTime || '',
+        eveningTeaTime: res.data.eveningTeaTime || '',
+        dinnerTime: res.data.dinnerTime || '',
+        sleepTime: res.data.sleepTime || '',
+      });
     } catch (err) {
       setError(errorMessage(err, 'Could not load client'));
     } finally {
@@ -209,6 +242,24 @@ export default function AdminClientDetail() {
       setSubscriptionMessage(errorMessage(err, 'Could not save subscription'));
     } finally {
       setSubscriptionSaving(false);
+    }
+  }
+
+  function updateRoutineField(field, value) {
+    setRoutine((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function saveRoutine(e) {
+    e.preventDefault();
+    setRoutineSaving(true);
+    setRoutineMessage('');
+    try {
+      await api.put(`/admin/users/${id}/routine`, routine);
+      setRoutineMessage('Daily routine saved.');
+    } catch (err) {
+      setRoutineMessage(errorMessage(err, 'Could not save daily routine'));
+    } finally {
+      setRoutineSaving(false);
     }
   }
 
@@ -416,6 +467,38 @@ export default function AdminClientDetail() {
             {subscriptionMessage && <p className="text-xs text-gray-600">{subscriptionMessage}</p>}
           </form>
         </div>
+      </div>
+
+      <div className="card">
+        <h2 className="font-semibold mb-4">Daily routine</h2>
+        <form onSubmit={saveRoutine} className="space-y-3">
+          <div>
+            <label className="label">Blood group</label>
+            <input
+              className="input max-w-[160px]"
+              placeholder="e.g. O+"
+              value={routine.bloodGroup}
+              onChange={(e) => updateRoutineField('bloodGroup', e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {ROUTINE_FIELDS.map(({ key, label }) => (
+              <div key={key}>
+                <label className="label">{label}</label>
+                <input
+                  type="time"
+                  className="input"
+                  value={routine[key]}
+                  onChange={(e) => updateRoutineField(key, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+          <button type="submit" className="btn-primary" disabled={routineSaving}>
+            {routineSaving ? 'Saving...' : 'Save'}
+          </button>
+          {routineMessage && <p className="text-xs text-gray-600">{routineMessage}</p>}
+        </form>
       </div>
 
       <div className="card">

@@ -20,7 +20,17 @@ router.get('/me', async (req, res) => {
   return res.json(publicUser(user));
 });
 
-// PUT /api/users/me { name, email, mobile, heightCm, age }
+const ROUTINE_FIELDS = [
+  'bloodGroup',
+  'wakeUpTime',
+  'breakfastTime',
+  'lunchTime',
+  'eveningTeaTime',
+  'dinnerTime',
+  'sleepTime',
+];
+
+// PUT /api/users/me { name, email, mobile, heightCm, age, bloodGroup, wakeUpTime, breakfastTime, lunchTime, eveningTeaTime, dinnerTime, sleepTime }
 router.put('/me', async (req, res) => {
   try {
     const { name, email, mobile, heightCm, age } = req.body || {};
@@ -30,6 +40,9 @@ router.put('/me', async (req, res) => {
     if (mobile !== undefined) data.mobile = mobile;
     if (heightCm !== undefined) data.heightCm = heightCm === null ? null : Number(heightCm);
     if (age !== undefined) data.age = age === null ? null : Number(age);
+    ROUTINE_FIELDS.forEach((field) => {
+      if (req.body[field] !== undefined) data[field] = req.body[field] || null;
+    });
 
     const user = await prisma.user.update({ where: { id: req.user.id }, data });
     return res.json(publicUser(user));

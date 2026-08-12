@@ -7,13 +7,35 @@ function currentMonthStr() {
   return new Date().toISOString().slice(0, 7);
 }
 
+const ROUTINE_FIELDS = [
+  { key: 'wakeUpTime', label: 'Wake up' },
+  { key: 'breakfastTime', label: 'Breakfast' },
+  { key: 'lunchTime', label: 'Lunch' },
+  { key: 'eveningTeaTime', label: 'Evening tea' },
+  { key: 'dinnerTime', label: 'Dinner' },
+  { key: 'sleepTime', label: 'Sleep' },
+];
+
 export default function ClientDashboard() {
   const { user, updateUser } = useAuth();
 
   const [today, setToday] = useState(null);
   const [todayLoading, setTodayLoading] = useState(true);
 
-  const [profile, setProfile] = useState({ name: '', email: '', mobile: '', heightCm: '', age: '' });
+  const [profile, setProfile] = useState({
+    name: '',
+    email: '',
+    mobile: '',
+    heightCm: '',
+    age: '',
+    bloodGroup: '',
+    wakeUpTime: '',
+    breakfastTime: '',
+    lunchTime: '',
+    eveningTeaTime: '',
+    dinnerTime: '',
+    sleepTime: '',
+  });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
@@ -35,6 +57,13 @@ export default function ClientDashboard() {
       mobile: res.data.mobile || '',
       heightCm: res.data.heightCm ?? '',
       age: res.data.age ?? '',
+      bloodGroup: res.data.bloodGroup || '',
+      wakeUpTime: res.data.wakeUpTime || '',
+      breakfastTime: res.data.breakfastTime || '',
+      lunchTime: res.data.lunchTime || '',
+      eveningTeaTime: res.data.eveningTeaTime || '',
+      dinnerTime: res.data.dinnerTime || '',
+      sleepTime: res.data.sleepTime || '',
     });
   }, []);
 
@@ -89,6 +118,13 @@ export default function ClientDashboard() {
         mobile: profile.mobile,
         heightCm: profile.heightCm === '' ? null : Number(profile.heightCm),
         age: profile.age === '' ? null : Number(profile.age),
+        bloodGroup: profile.bloodGroup,
+        wakeUpTime: profile.wakeUpTime,
+        breakfastTime: profile.breakfastTime,
+        lunchTime: profile.lunchTime,
+        eveningTeaTime: profile.eveningTeaTime,
+        dinnerTime: profile.dinnerTime,
+        sleepTime: profile.sleepTime,
       });
       updateUser({ name: res.data.name, email: res.data.email });
       setProfileMessage('Profile updated.');
@@ -213,6 +249,31 @@ export default function ClientDashboard() {
                   value={profile.age}
                   onChange={(e) => setProfile({ ...profile, age: e.target.value })}
                 />
+              </div>
+            </div>
+            <div>
+              <label className="label">Blood group</label>
+              <input
+                className="input max-w-[160px]"
+                placeholder="e.g. O+"
+                value={profile.bloodGroup}
+                onChange={(e) => setProfile({ ...profile, bloodGroup: e.target.value })}
+              />
+            </div>
+            <div>
+              <p className="label mb-2">Daily routine</p>
+              <div className="grid grid-cols-2 gap-3">
+                {ROUTINE_FIELDS.map(({ key, label }) => (
+                  <div key={key}>
+                    <label className="label">{label}</label>
+                    <input
+                      type="time"
+                      className="input"
+                      value={profile[key]}
+                      onChange={(e) => setProfile({ ...profile, [key]: e.target.value })}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
             <button type="submit" className="btn-primary" disabled={profileSaving}>

@@ -21,6 +21,15 @@ model User {
   mobile         String?
   heightCm       Float?
   age            Int?
+  bloodGroup     String?
+  // Daily routine timings ("HH:mm"), used by the trainer to plan meal
+  // timing around the client's actual schedule.
+  wakeUpTime     String?
+  breakfastTime  String?
+  lunchTime      String?
+  eveningTeaTime String?
+  dinnerTime     String?
+  sleepTime      String?
   notifyTime     String   @default("08:00") // "HH:mm", server local time
   notifyEmail    Boolean  @default(true)
   notifyWhatsapp Boolean  @default(false)
