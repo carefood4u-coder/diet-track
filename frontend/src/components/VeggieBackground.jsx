@@ -2,18 +2,18 @@
 // fruit icons scattered behind the login form. Purely decorative - marked
 // aria-hidden and non-interactive so it never gets in the way of the form.
 
-function Carrot({ className }) {
+function Carrot({ className, style }) {
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+    <svg viewBox="0 0 100 100" className={className} style={style} aria-hidden="true">
       <path d="M50 30 L38 92 Q50 100 62 92 Z" fill="#f97316" />
       <path d="M46 32 L40 12 M50 30 L50 8 M54 32 L60 12" stroke="#16a34a" strokeWidth="6" strokeLinecap="round" />
     </svg>
   );
 }
 
-function Tomato({ className }) {
+function Tomato({ className, style }) {
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+    <svg viewBox="0 0 100 100" className={className} style={style} aria-hidden="true">
       <circle cx="50" cy="58" r="34" fill="#ef4444" />
       <path
         d="M50 24 L44 14 L52 18 L58 10 L60 20 L70 16 L64 26"
@@ -24,9 +24,9 @@ function Tomato({ className }) {
   );
 }
 
-function Broccoli({ className }) {
+function Broccoli({ className, style }) {
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+    <svg viewBox="0 0 100 100" className={className} style={style} aria-hidden="true">
       <rect x="44" y="60" width="12" height="30" rx="4" fill="#a3e635" />
       <circle cx="50" cy="42" r="26" fill="#16a34a" />
       <circle cx="30" cy="52" r="16" fill="#22c55e" />
@@ -35,9 +35,9 @@ function Broccoli({ className }) {
   );
 }
 
-function Apple({ className }) {
+function Apple({ className, style }) {
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+    <svg viewBox="0 0 100 100" className={className} style={style} aria-hidden="true">
       <path
         d="M50 34 C30 30 18 46 20 64 C22 82 36 92 50 88 C64 92 78 82 80 64 C82 46 70 30 50 34 Z"
         fill="#ef4444"
@@ -48,9 +48,9 @@ function Apple({ className }) {
   );
 }
 
-function LeafyGreen({ className }) {
+function LeafyGreen({ className, style }) {
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+    <svg viewBox="0 0 100 100" className={className} style={style} aria-hidden="true">
       <path
         d="M50 90 C20 80 14 44 40 16 C46 40 42 56 52 66 C62 76 78 74 84 60 C82 82 66 92 50 90 Z"
         fill="#22c55e"
@@ -59,9 +59,9 @@ function LeafyGreen({ className }) {
   );
 }
 
-function OrangeSlice({ className }) {
+function OrangeSlice({ className, style }) {
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+    <svg viewBox="0 0 100 100" className={className} style={style} aria-hidden="true">
       <circle cx="50" cy="50" r="38" fill="#fb923c" />
       <circle cx="50" cy="50" r="30" fill="#fed7aa" />
       {[0, 60, 120, 180, 240, 300].map((deg) => (
@@ -91,7 +91,7 @@ const ITEMS = [
 
 export default function VeggieBackground() {
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10" aria-hidden="true">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
       {ITEMS.map(({ Icon, style }, i) => (
         <Icon key={i} className="absolute opacity-20" style={style} />
       ))}
