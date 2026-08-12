@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api, { errorMessage } from '../api/client';
 import WeightChart from '../components/WeightChart';
+import VeggieBackground from '../components/VeggieBackground';
 import { useAuth } from '../context/AuthContext';
 
 function currentMonthStr() {
@@ -157,7 +158,8 @@ export default function ClientDashboard() {
   const latestWeight = weightLogs[weightLogs.length - 1];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      <VeggieBackground />
       <div className="rounded-lg bg-gradient-to-r from-brand-600 to-brand-500 text-white px-5 py-6 shadow-sm">
         <h1 className="text-2xl font-bold">Hi {user?.name?.split(' ')[0]} 🥗</h1>
         <p className="text-sm text-brand-50">Here's your plan and progress.</p>
