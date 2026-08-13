@@ -70,7 +70,7 @@ function getTransporter() {
 
 /**
  * Sends an email if SMTP is configured. Never throws - callers get back a
- * result object describing what happened so it can be recorded in a SendLog.
+ * result object describing what happened.
  */
 async function sendEmail({ to, subject, text, html }) {
   if (process.env.SENDGRID_API_KEY) {

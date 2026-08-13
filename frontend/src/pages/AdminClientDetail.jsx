@@ -122,13 +122,6 @@ export default function AdminClientDetail() {
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirming, setDeleteConfirming] = useState(false);
 
-  // Notify settings form state
-  const [notifyTime, setNotifyTime] = useState('08:00');
-  const [notifyEmail, setNotifyEmail] = useState(true);
-  const [notifyWhatsapp, setNotifyWhatsapp] = useState(false);
-  const [notifySaving, setNotifySaving] = useState(false);
-  const [notifyMessage, setNotifyMessage] = useState('');
-
   // Diet plan state
   const [month, setMonth] = useState(currentMonthStr());
   const [plan, setPlan] = useState(null);
@@ -161,11 +154,6 @@ export default function AdminClientDetail() {
   const [resetSaving, setResetSaving] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
 
-  // Notification send logs
-  const [sendLogs, setSendLogs] = useState([]);
-  const [sendLogsLoading, setSendLogsLoading] = useState(false);
-  const [sendLogsError, setSendLogsError] = useState('');
-
   const loadClient = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -179,9 +167,6 @@ export default function AdminClientDetail() {
         heightCm: res.data.heightCm ?? '',
         dateOfBirth: res.data.dateOfBirth ? res.data.dateOfBirth.slice(0, 10) : '',
       });
-      setNotifyTime(res.data.notifyTime || '08:00');
-      setNotifyEmail(!!res.data.notifyEmail);
-      setNotifyWhatsapp(!!res.data.notifyWhatsapp);
       setSubscriptionStartsAt(res.data.subscriptionStartsAt ? res.data.subscriptionStartsAt.slice(0, 10) : '');
       setSubscriptionEndsAt(res.data.subscriptionEndsAt ? res.data.subscriptionEndsAt.slice(0, 10) : '');
       setRoutine({
@@ -227,23 +212,6 @@ export default function AdminClientDetail() {
     loadPlan();
   }, [loadPlan]);
 
-  const loadSendLogs = useCallback(async () => {
-    setSendLogsLoading(true);
-    setSendLogsError('');
-    try {
-      const res = await api.get(`/admin/send-logs/${id}`);
-      setSendLogs(res.data);
-    } catch (err) {
-      setSendLogsError(errorMessage(err, 'Could not load notification logs'));
-    } finally {
-      setSendLogsLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    loadSendLogs();
-  }, [loadSendLogs]);
-
   async function saveProfile(e) {
     e.preventDefault();
     setProfileSaving(true);
@@ -285,20 +253,6 @@ export default function AdminClientDetail() {
     } catch (err) {
       setError(errorMessage(err, 'Could not delete client'));
       setDeleting(false);
-    }
-  }
-
-  async function saveNotifySettings(e) {
-    e.preventDefault();
-    setNotifySaving(true);
-    setNotifyMessage('');
-    try {
-      await api.put(`/admin/users/${id}/notify-settings`, { notifyTime, notifyEmail, notifyWhatsapp });
-      setNotifyMessage('Notification settings saved.');
-    } catch (err) {
-      setNotifyMessage(errorMessage(err, 'Could not save settings'));
-    } finally {
-      setNotifySaving(false);
     }
   }
 
@@ -459,7 +413,7 @@ export default function AdminClientDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
           <h2 className="font-semibold mb-4">Profile</h2>
           <form onSubmit={saveProfile} className="space-y-3">
@@ -521,39 +475,6 @@ export default function AdminClientDetail() {
         </div>
 
         <div className="card">
-          <h2 className="font-semibold mb-4">Notification settings</h2>
-          <form onSubmit={saveNotifySettings} className="space-y-3">
-            <div>
-              <label className="label">Delivery time (server local, HH:mm)</label>
-              <input
-                type="time"
-                className="input"
-                value={notifyTime}
-                onChange={(e) => setNotifyTime(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
-                Email
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={notifyWhatsapp}
-                  onChange={(e) => setNotifyWhatsapp(e.target.checked)}
-                />
-                WhatsApp
-              </label>
-            </div>
-            <button type="submit" className="btn-primary" disabled={notifySaving}>
-              {notifySaving ? 'Saving...' : 'Save settings'}
-            </button>
-            {notifyMessage && <p className="text-xs text-gray-600">{notifyMessage}</p>}
-          </form>
-        </div>
-
-        <div className="card">
           <h2 className="font-semibold mb-4">Subscription</h2>
           <form onSubmit={saveSubscription} className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
@@ -579,16 +500,16 @@ export default function AdminClientDetail() {
             <p className="text-xs text-gray-500">
               {(() => {
                 if (!subscriptionStartsAt && !subscriptionEndsAt) {
-                  return 'Not yet purchased. No dates set — notifications will not send.';
+                  return 'Not yet purchased. No dates set.';
                 }
                 const today = new Date(new Date().toDateString());
                 if (subscriptionStartsAt && today < new Date(`${subscriptionStartsAt}T00:00:00.000Z`)) {
-                  return 'Not yet purchased. This client will not receive diet plan notifications until the start date.';
+                  return 'Not yet purchased. Starts on the date above.';
                 }
                 if (subscriptionEndsAt && today > new Date(`${subscriptionEndsAt}T00:00:00.000Z`)) {
-                  return 'Subscription ends. This client will not receive diet plan notifications until renewed.';
+                  return 'Subscription ends. Ended on the date above.';
                 }
-                return 'Active. Diet plan notifications will send normally.';
+                return 'Active.';
               })()}
             </p>
             <div className="flex items-center gap-2">
@@ -789,63 +710,6 @@ export default function AdminClientDetail() {
         )}
       </div>
 
-      <div className="card">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-          <h2 className="font-semibold">Notification logs</h2>
-          <button type="button" className="btn-secondary py-1 px-2 text-xs" onClick={loadSendLogs} disabled={sendLogsLoading}>
-            {sendLogsLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-
-        {sendLogsError && (
-          <div className="rounded-md bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 mb-4">
-            {sendLogsError}
-          </div>
-        )}
-
-        {sendLogsLoading ? (
-          <p className="text-sm text-gray-500">Loading...</p>
-        ) : sendLogs.length === 0 ? (
-          <p className="text-sm text-gray-500">No notifications have been sent yet.</p>
-        ) : (
-          <div className="max-h-72 overflow-y-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 border-b border-gray-200">
-                  <th className="py-1 pr-4">Sent at</th>
-                  <th className="py-1 pr-4">Plan day</th>
-                  <th className="py-1 pr-4">Channel</th>
-                  <th className="py-1 pr-4">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sendLogs.map((log) => (
-                  <tr key={log.id} className="border-b border-gray-100 last:border-0">
-                    <td className="py-1 pr-4">{new Date(log.sentAt).toLocaleString()}</td>
-                    <td className="py-1 pr-4">
-                      {log.dietPlanDay ? new Date(log.dietPlanDay.date).toLocaleDateString() : '-'}
-                    </td>
-                    <td className="py-1 pr-4">{log.channel}</td>
-                    <td className="py-1 pr-4">
-                      <span
-                        className={
-                          log.status === 'SENT'
-                            ? 'text-green-700'
-                            : log.status === 'FAILED'
-                              ? 'text-red-700'
-                              : 'text-gray-500'
-                        }
-                      >
-                        {log.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

@@ -196,31 +196,6 @@ router.post('/users/:id/reset-password', async (req, res) => {
   }
 });
 
-// PUT /api/admin/users/:id/notify-settings { notifyTime, notifyEmail, notifyWhatsapp }
-router.put('/users/:id/notify-settings', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const { notifyTime, notifyEmail, notifyWhatsapp } = req.body || {};
-
-    if (notifyTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(notifyTime)) {
-      return res.status(400).json({ error: 'notifyTime must be in HH:mm format' });
-    }
-
-    const data = {};
-    if (notifyTime !== undefined) data.notifyTime = notifyTime;
-    if (notifyEmail !== undefined) data.notifyEmail = Boolean(notifyEmail);
-    if (notifyWhatsapp !== undefined) data.notifyWhatsapp = Boolean(notifyWhatsapp);
-
-    const user = await prisma.user.update({ where: { id }, data });
-    return res.json(publicUser(user));
-  } catch (err) {
-    if (err.code === 'P2025') {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    console.error('[admin/users/:id/notify-settings]', err);
-    return res.status(500).json({ error: 'Could not update notify settings' });
-  }
-});
 
 const ROUTINE_FIELDS = [
   'bloodGroup',
@@ -423,23 +398,6 @@ router.get('/diet-plans/:userId', async (req, res) => {
   } catch (err) {
     console.error('[admin/diet-plans/:userId GET]', err);
     return res.status(500).json({ error: 'Could not load diet plan' });
-  }
-});
-
-// GET /api/admin/send-logs/:userId - recent notification send attempts
-router.get('/send-logs/:userId', async (req, res) => {
-  try {
-    const userId = Number(req.params.userId);
-    const logs = await prisma.sendLog.findMany({
-      where: { userId },
-      orderBy: { sentAt: 'desc' },
-      take: 100,
-      include: { dietPlanDay: { select: { date: true } } },
-    });
-    return res.json(logs);
-  } catch (err) {
-    console.error('[admin/send-logs/:userId GET]', err);
-    return res.status(500).json({ error: 'Could not load send logs' });
   }
 });
 

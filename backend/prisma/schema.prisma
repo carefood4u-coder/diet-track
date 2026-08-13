@@ -30,12 +30,6 @@ model User {
   eveningTeaTime String?
   dinnerTime     String?
   sleepTime      String?
-  notifyTime     String   @default("08:00") // "HH:mm", server local time
-  notifyEmail    Boolean  @default(true)
-  notifyWhatsapp Boolean  @default(false)
-  // Diet plan notifications only send once subscriptionStartsAt is set and
-  // has arrived, and (if set) before subscriptionEndsAt. A null
-  // subscriptionStartsAt means "not yet purchased" - no notifications send.
   subscriptionStartsAt DateTime?
   subscriptionEndsAt   DateTime?
   // Soft-delete: archived clients are hidden from the default client list
@@ -47,7 +41,6 @@ model User {
   weightLogs        WeightLog[]
   dietPlans          DietPlan[]
   passwordResetOtps PasswordResetOtp[]
-  sendLogs           SendLog[]
 }
 
 model WeightLog {
@@ -79,8 +72,7 @@ model DietPlanDay {
   date       DateTime // date-only, stored at UTC midnight
   notes      String?
 
-  meals    Meal[]
-  sendLogs SendLog[]
+  meals Meal[]
 
   @@unique([dietPlanId, date])
 }
@@ -112,16 +104,3 @@ model PasswordResetOtp {
   @@index([userId])
 }
 
-model SendLog {
-  id            Int         @id @default(autoincrement())
-  userId        Int
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dietPlanDayId Int
-  dietPlanDay   DietPlanDay @relation(fields: [dietPlanDayId], references: [id], onDelete: Cascade)
-  channel       String // "EMAIL" | "WHATSAPP"
-  status        String // "SENT" | "SKIPPED" | "FAILED"
-  sentAt        DateTime    @default(now())
-
-  @@index([userId])
-  @@index([dietPlanDayId])
-}

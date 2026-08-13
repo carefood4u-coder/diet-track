@@ -27,9 +27,6 @@ async function main() {
       email: 'carefood4u@gmail.com',
       passwordHash: adminPasswordHash,
       mobile: '+10000000000',
-      notifyTime: '08:00',
-      notifyEmail: true,
-      notifyWhatsapp: false,
     },
   });
 
@@ -44,9 +41,6 @@ async function main() {
       mobile: '+15551234567',
       heightCm: 172.5,
       dateOfBirth: new Date('1997-03-15T00:00:00.000Z'),
-      notifyTime: '08:00',
-      notifyEmail: true,
-      notifyWhatsapp: false,
     },
   });
 
